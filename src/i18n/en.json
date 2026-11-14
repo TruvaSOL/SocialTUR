@@ -1,5 +1,5 @@
 {
-  "stage.label": "Stage 1 · Style lock",
+  "stage.label": "Stage 2 · Performance gate",
   "hint.camera": "Drag: rotate · Two fingers: pan and zoom",
   "stats.button": "Stats",
   "stats.fps": "Frame rate",
@@ -9,5 +9,9 @@
   "stats.gpu": "Models / textures",
   "stats.download": "Downloaded",
   "stats.quality": "Quality",
+  "stats.people": "People drawn",
+  "view.eye": "Eye level",
+  "view.overview": "Overview",
+  "crowd.button": "Crowd",
   "stats.unknown": "unknown"
 }

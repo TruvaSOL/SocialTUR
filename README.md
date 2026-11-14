@@ -2,7 +2,7 @@
 
 A browser-based social city game: one shared low-poly 3D city where players work, earn a home, decorate it, visit each other and build shared landmarks together.
 
-Status: **Stage 1 — style lock.** One house, one tree, one walking character on a small ground patch.
+Status: **Stage 2 — performance gate.** A full district (52 houses, 114 trees, plaza), a free camera, an eye-level view and up to 200 walking characters.
 
 ## Run
 
@@ -19,7 +19,7 @@ npm run build
 ```
 
 `npm run build` type-checks, builds to `dist/` and fails if the output exceeds the 6 MB first-load budget.
-Add `?stats` to the address (or press the Stats button) for the measurement overlay.
+Add `?stats` to the address (or press the Stats button) for the measurement overlay, and `?quality=1` (1-6) to hold one quality step while measuring.
 
 ## Documents
 

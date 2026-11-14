@@ -1,7 +1,8 @@
-﻿import { CapsuleGeometry, Group, Mesh, SphereGeometry, TorusGeometry } from 'three';
+import { CapsuleGeometry, Group, Mesh, SphereGeometry, TorusGeometry } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Builder, smoothMaterial } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
+import { RIG, type Pose } from './pose';
 
 /** The swappable parts of a character. Each maps to one palette colour for now. */
 export interface Look {
@@ -20,9 +21,6 @@ export const DEFAULT_LOOK: Look = {
   shoes: C.shoe,
 };
 
-const HIP_Y = 0.42;
-/** Ground covered by one full walk cycle, matched to the leg swing so feet do not slide. */
-const STRIDE = 0.92;
 
 function part(build: (b: Builder) => void): Mesh {
   const b = new Builder();
@@ -36,11 +34,6 @@ function part(build: (b: Builder) => void): Mesh {
  */
 export class Character {
   readonly root = new Group();
-  /** 0 = standing, 1 = full walk. Callers set this; the pose blends smoothly. */
-  walkAmount = 1;
-  /** 0..1, raises the right arm and waves. */
-  waveAmount = 0;
-
   private pelvis = new Group();
   private torso = new Group();
   private head = new Group();
@@ -48,11 +41,9 @@ export class Character {
   private armR = new Group();
   private legL = new Group();
   private legR = new Group();
-  private phase = 0;
-  private time = 0;
 
   constructor(look: Look = DEFAULT_LOOK) {
-    this.pelvis.position.y = HIP_Y;
+    this.pelvis.position.y = RIG.hipY;
     this.root.add(this.pelvis);
 
     this.pelvis.add(part((b) => b.add(new RoundedBoxGeometry(0.4, 0.2, 0.28, 1, 0.09), look.bottom, { p: [0, 0.04, 0] })));
@@ -64,7 +55,7 @@ export class Character {
       [this.legL, 1],
       [this.legR, -1],
     ] as const) {
-      leg.position.set(side * 0.1, 0, 0);
+      leg.position.set(side * RIG.legX, 0, 0);
       leg.add(
         part((b) => {
           b.add(new CapsuleGeometry(0.085, 0.2, 3, 8), look.bottom, { p: [0, -0.17, 0] });
@@ -78,7 +69,7 @@ export class Character {
       [this.armL, 1],
       [this.armR, -1],
     ] as const) {
-      arm.position.set(side * 0.25, 0.44, 0);
+      arm.position.set(side * RIG.armX, RIG.armY, 0);
       arm.add(
         part((b) => {
           b.add(new CapsuleGeometry(0.07, 0.1, 3, 8), look.top, { p: [0, -0.08, 0] });
@@ -89,7 +80,7 @@ export class Character {
       this.torso.add(arm);
     }
 
-    this.head.position.y = 0.5;
+    this.head.position.y = RIG.headY;
     this.head.add(
       part((b) => {
         b.add(new SphereGeometry(0.3, 16, 12), look.skin, { p: [0, 0.27, 0], s: [1, 0.93, 0.96] });
@@ -110,49 +101,18 @@ export class Character {
     this.torso.add(this.head);
   }
 
-  /** Metres per second at full walk. */
-  get speed(): number {
-    return 1.25 * this.walkAmount;
-  }
-
-  update(dt: number): void {
-    this.time += dt;
-    this.phase += (this.speed / STRIDE) * Math.PI * 2 * dt;
-    const w = this.walkAmount;
-    const s = Math.sin(this.phase);
-    const c = Math.cos(this.phase);
-    const breath = Math.sin(this.time * 2.2);
-
-    // Legs: swing from the hip; the leg moving forward lifts so the foot clears the ground.
-    const swing = 0.6 * w;
-    this.legL.rotation.x = -s * swing;
-    this.legR.rotation.x = s * swing;
-    this.legL.position.y = Math.max(0, c) * 0.07 * w;
-    this.legR.position.y = Math.max(0, -c) * 0.07 * w;
-
-    // Weight: the body drops as both feet land, rises as one leg passes the other,
-    // and shifts sideways over the leg that is carrying it.
-    this.pelvis.position.y = HIP_Y + (0.03 * Math.cos(this.phase * 2) - 0.012) * w + breath * 0.004 * (1 - w);
-    this.pelvis.position.x = -c * 0.022 * w;
-    this.pelvis.rotation.z = c * 0.045 * w;
-    this.pelvis.rotation.x = 0.07 * w;
-    this.pelvis.rotation.y = -s * 0.1 * w;
-
-    // Shoulders counter the hips; the head stays level and lags the bounce slightly.
-    this.torso.rotation.y = s * 0.22 * w;
-    this.torso.scale.y = 1 + breath * 0.012 * (1 - w);
-    this.head.rotation.y = -s * 0.12 * w;
-    this.head.rotation.x = 0.045 * Math.cos(this.phase * 2 - 0.7) * w;
-    this.head.rotation.z = -c * 0.03 * w + Math.sin(this.time * 1.3) * 0.03 * (1 - w);
-
-    // Arms swing opposite to the legs.
-    const armSwing = 0.55 * w;
-    this.armL.rotation.set(s * armSwing, 0, 0.12);
-    const wave = this.waveAmount;
-    this.armR.rotation.set(
-      -s * armSwing * (1 - wave),
-      0,
-      -0.12 - wave * (2.35 + Math.sin(this.time * 11) * 0.32),
-    );
+  /** Puts the body in the given pose. */
+  applyPose(p: Pose): void {
+    this.legL.rotation.x = p.legL;
+    this.legR.rotation.x = p.legR;
+    this.legL.position.y = p.liftL;
+    this.legR.position.y = p.liftR;
+    this.pelvis.position.set(p.pelvisX, p.pelvisY, 0);
+    this.pelvis.rotation.set(p.pelvisRX, p.pelvisRY, p.pelvisRZ);
+    this.torso.rotation.y = p.torsoRY;
+    this.torso.scale.y = p.torsoSY;
+    this.head.rotation.set(p.headRX, p.headRY, p.headRZ);
+    this.armL.rotation.set(p.armLX, 0, p.armLZ);
+    this.armR.rotation.set(p.armRX, 0, p.armRZ);
   }
 }

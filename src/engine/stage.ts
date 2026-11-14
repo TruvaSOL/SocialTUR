@@ -1,6 +1,9 @@
 ﻿import { DirectionalLight, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+/** 'overview' is the free camera over the district; 'eye' follows a character at head height. */
+export type ViewMode = 'overview' | 'eye';
+
 export interface Stage {
   renderer: WebGLRenderer;
   scene: Scene;
@@ -9,12 +12,24 @@ export interface Stage {
   sun: DirectionalLight;
   /** Largest pixel ratio this device will be rendered at. */
   basePixelRatio: number;
+  readonly mode: ViewMode;
+  /** Switches the view. For 'eye', `focus` is the head to follow and `yaw` the way it faces. */
+  setMode(mode: ViewMode, focus?: Vector3, yaw?: number): void;
+  /** Call every frame with the followed character's head position. Does nothing in overview. */
+  follow(focus: Vector3): void;
+  /** Turns the sun's shadow on or off. */
+  setShadows(on: boolean): void;
 }
 
-const FOCUS = new Vector3(0, 1.3, 0.6);
 const VIEW_DIR = new Vector3(0.6, 0.5, 0.78).normalize();
-/** Radius around the focus point that must stay in view on any screen shape. */
-const FIT_RADIUS = 7.4;
+const SUN_DIR = new Vector3(7, 12, 6).normalize();
+/** Radius that must fit the screen's height, and its width, when the district is first shown. */
+const FIT_HEIGHT = 60;
+const FIT_WIDTH = 80;
+/** How far from the centre the camera target may be dragged. */
+const TARGET_LIMIT = 62;
+const OVERVIEW_FOV = 32;
+const EYE_FOV = 55;
 
 export function createStage(canvas: HTMLCanvasElement): Stage {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -22,47 +37,65 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   renderer.setPixelRatio(basePixelRatio);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
+  // Everything that casts a shadow stands still, so the shadow is drawn once, not every frame.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(32, 1, 0.5, 120);
+  const camera = new PerspectiveCamera(OVERVIEW_FOV, 1, 0.4, 600);
 
   // Cheap lighting: sky/ground ambient plus one warm sun with the scene's only shadow.
   scene.add(new HemisphereLight(0xcfe8ff, 0xe8cfa0, 1.15));
   const sun = new DirectionalLight(0xfff1d6, 2.7);
-  sun.position.set(7, 12, 6);
+  sun.position.copy(SUN_DIR).multiplyScalar(160);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -11;
-  sun.shadow.camera.right = 11;
-  sun.shadow.camera.top = 11;
-  sun.shadow.camera.bottom = -11;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 40;
-  sun.shadow.bias = -0.0006;
-  sun.shadow.normalBias = 0.03;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -82;
+  sun.shadow.camera.right = 82;
+  sun.shadow.camera.top = 82;
+  sun.shadow.camera.bottom = -82;
+  sun.shadow.camera.near = 40;
+  sun.shadow.camera.far = 280;
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.bias = -0.0008;
+  sun.shadow.normalBias = 0.08;
   scene.add(sun);
 
   const controls = new OrbitControls(camera, canvas);
-  controls.target.copy(FOCUS);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.minDistance = 6;
-  controls.maxDistance = 60;
-  controls.maxPolarAngle = 1.5; // never dip below the ground
-  controls.autoRotate = true; // gentle turntable until the player touches the screen
-  controls.autoRotateSpeed = 0.35;
 
+  let mode: ViewMode = 'overview';
   let touched = false;
+  const savedPosition = new Vector3();
+  const savedTarget = new Vector3();
+  const delta = new Vector3();
+
+  const applyLimits = () => {
+    const eye = mode === 'eye';
+    controls.enablePan = !eye;
+    controls.minDistance = eye ? 2.2 : 8;
+    controls.maxDistance = eye ? 7 : 320;
+    controls.minPolarAngle = eye ? 0.95 : 0;
+    controls.maxPolarAngle = eye ? 1.56 : 1.45; // never dip below the ground
+    controls.autoRotate = !eye && !touched; // gentle turntable until the player touches the screen
+    controls.autoRotateSpeed = 0.25;
+    camera.fov = eye ? EYE_FOV : OVERVIEW_FOV;
+    camera.updateProjectionMatrix();
+  };
+  applyLimits();
+
   controls.addEventListener('start', () => {
     touched = true;
     controls.autoRotate = false;
   });
-  // Keep the pan target near the patch so the scene cannot be lost.
+  // Keep the pan target over the district so the scene cannot be lost.
   controls.addEventListener('change', () => {
+    if (mode !== 'overview') return;
     const t = controls.target;
     const d = Math.hypot(t.x, t.z);
-    if (d > 8) t.multiplyScalar(8 / d).setY(t.y);
-    t.y = Math.min(4, Math.max(0, t.y));
+    if (d > TARGET_LIMIT) t.multiplyScalar(TARGET_LIMIT / d);
+    t.y = Math.min(6, Math.max(0, t.y));
   });
 
   const resize = () => {
@@ -71,18 +104,57 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    if (!touched) {
-      // Frame the whole patch whether the phone is upright or sideways.
+    if (!touched && mode === 'overview') {
+      // Frame the whole district whether the phone is upright or sideways.
       const vFov = (camera.fov * Math.PI) / 180;
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-      // Width must fit the whole patch edge to edge; height only needs the tighter radius.
-      // Taking the larger distance also covers near-square screens.
-      const dist = Math.max((FIT_RADIUS + 2) / Math.sin(hFov / 2), FIT_RADIUS / Math.sin(vFov / 2));
-      camera.position.copy(FOCUS).addScaledVector(VIEW_DIR, dist);
+      const dist = Math.max(FIT_WIDTH / Math.sin(hFov / 2), FIT_HEIGHT / Math.sin(vFov / 2));
+      controls.target.set(0, 0, 0);
+      camera.position.copy(VIEW_DIR).multiplyScalar(dist);
     }
   };
   window.addEventListener('resize', resize);
   resize();
 
-  return { renderer, scene, camera, controls, sun, basePixelRatio };
+  return {
+    renderer,
+    scene,
+    camera,
+    controls,
+    sun,
+    basePixelRatio,
+    get mode() {
+      return mode;
+    },
+    setMode(next, focus, yaw = 0) {
+      if (next === mode) return;
+      if (next === 'eye' && focus) {
+        savedPosition.copy(camera.position);
+        savedTarget.copy(controls.target);
+        mode = next;
+        applyLimits();
+        // Start just behind and slightly above the character's shoulder.
+        controls.target.copy(focus);
+        camera.position.set(focus.x - Math.sin(yaw) * 3.6, focus.y + 0.7, focus.z - Math.cos(yaw) * 3.6);
+      } else {
+        mode = 'overview';
+        applyLimits();
+        controls.target.copy(savedTarget);
+        camera.position.copy(savedPosition);
+      }
+      controls.update();
+    },
+    follow(focus) {
+      if (mode !== 'eye') return;
+      // Carry the camera along with the character, keeping whatever angle the player chose.
+      delta.subVectors(focus, controls.target);
+      camera.position.add(delta);
+      controls.target.copy(focus);
+    },
+    setShadows(on) {
+      if (sun.castShadow === on) return;
+      sun.castShadow = on;
+      if (on) renderer.shadowMap.needsUpdate = true;
+    },
+  };
 }

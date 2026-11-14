@@ -1,13 +1,23 @@
-﻿import { BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, IcosahedronGeometry, Mesh, Shape, SphereGeometry, Vector3 } from 'three';
+import { BoxGeometry, type BufferGeometry, CylinderGeometry, ExtrudeGeometry, IcosahedronGeometry, Shape } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { Builder, flatMaterial } from '../art/builder';
+import { Builder } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
-import { DOOR_LOCAL_X, HOUSE_HALF_DEPTH } from './layout';
+import { DOOR_LOCAL_X, HOUSE_HALF_DEPTH } from './district';
 
-export interface House {
-  group: Group;
-  update(time: number): void;
+/** The colours that change from house to house. Everything else is shared. */
+export interface HouseStyle {
+  wall: number;
+  roof: number;
+  roofDark: number;
+  door: number;
 }
+
+export const HOUSE_STYLES: HouseStyle[] = [
+  { wall: C.wall, roof: C.roof, roofDark: C.roofDark, door: C.door },
+  { wall: C.wallWarm, roof: C.roofTeal, roofDark: C.roofTealDark, door: C.clothRed },
+  { wall: C.wall, roof: C.roofSlate, roofDark: C.roofSlateDark, door: C.clothMustard },
+  { wall: C.wallCool, roof: C.roofOchre, roofDark: C.roofOchreDark, door: C.clothNavy },
+];
 
 // Proportions: short walls, big roof. That ratio is what makes it read as cosy.
 const W = 4.2; // width (x)
@@ -24,7 +34,7 @@ const ROOF_ANGLE = Math.atan2(ROOF_RISE, ROOF_HALF);
 
 // Small trim pieces are plain boxes; only pieces big enough to show a soft edge pay for one.
 const box = (w: number, h: number, d: number, r = 0.05) =>
-  r < 0.06 ? new BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, 1, r);
+  r < 0.08 ? new BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, 1, r);
 
 /** A framed window on a wall facing +z of the current group. */
 function addWindow(b: Builder, flowerBox: boolean): void {
@@ -42,14 +52,20 @@ function addWindow(b: Builder, flowerBox: boolean): void {
   }
 }
 
-export function createHouse(): House {
-  const group = new Group();
+const CHIMNEY_X = 1.25;
+const CHIMNEY_Z = -0.7;
+const CHIMNEY_TOP = PEAK_Y + 0.25;
+/** Where chimney smoke starts, in the house's own coordinates. */
+export const SMOKE_ORIGIN = { x: CHIMNEY_X, y: CHIMNEY_TOP + 0.15, z: CHIMNEY_Z } as const;
+
+/** One house as a single geometry, so a street of them can be drawn in one call. */
+export function buildHouseGeometry(style: HouseStyle): BufferGeometry {
   const b = new Builder();
   const front = D / 2;
 
   // Foundation and walls.
-  b.add(box(W + 0.3, 0.3, D + 0.3, 0.08), C.stone, { p: [0, 0.12, 0] });
-  b.add(box(W, WALL_H, D, 0.1), C.wall, { p: [0, BASE + WALL_H / 2, 0] });
+  b.add(box(W + 0.3, 0.3, D + 0.3), C.stone, { p: [0, 0.12, 0] });
+  b.add(box(W, WALL_H, D, 0.1), style.wall, { p: [0, BASE + WALL_H / 2, 0] });
 
   // Gable ends: the triangular wall under the roof.
   const gable = new Shape();
@@ -57,7 +73,7 @@ export function createHouse(): House {
   gable.lineTo(W / 2 - 0.03, 0);
   gable.lineTo(0, PEAK_Y - WALL_TOP);
   gable.closePath();
-  b.add(new ExtrudeGeometry(gable, { depth: D - 0.06, bevelEnabled: false }), C.wall, {
+  b.add(new ExtrudeGeometry(gable, { depth: D - 0.06, bevelEnabled: false }), style.wall, {
     p: [0, WALL_TOP - 0.02, -(D - 0.06) / 2],
   });
 
@@ -70,29 +86,26 @@ export function createHouse(): House {
   const roofDepth = D + 0.9;
   for (const side of [1, -1]) {
     b.group({ p: [(side * ROOF_HALF) / 2, EAVE_Y + ROOF_RISE / 2, 0], r: [0, 0, -side * ROOF_ANGLE] }, () => {
-      b.add(box(slabLen, 0.24, roofDepth, 0.08), C.roof);
-      b.add(box(0.34, 0.3, roofDepth + 0.06, 0.08), C.roofDark, { p: [(side * slabLen) / 2 - side * 0.12, 0, 0] });
+      b.add(box(slabLen, 0.24, roofDepth, 0.08), style.roof);
+      b.add(box(0.34, 0.3, roofDepth + 0.06), style.roofDark, { p: [(side * slabLen) / 2 - side * 0.12, 0, 0] });
       // Two raised rows hint at tiles without adding real detail.
-      b.add(box(0.12, 0.28, roofDepth + 0.02, 0.04), C.roofDark, { p: [side * 0.25, 0, 0] });
-      b.add(box(0.12, 0.28, roofDepth + 0.02, 0.04), C.roofDark, { p: [-side * 0.6, 0, 0] });
+      b.add(box(0.12, 0.28, roofDepth + 0.02, 0.04), style.roofDark, { p: [side * 0.25, 0, 0] });
+      b.add(box(0.12, 0.28, roofDepth + 0.02, 0.04), style.roofDark, { p: [-side * 0.6, 0, 0] });
     });
   }
-  b.add(box(0.46, 0.26, roofDepth + 0.08, 0.1), C.roofDark, { p: [0, PEAK_Y + 0.04, 0] });
+  b.add(box(0.46, 0.26, roofDepth + 0.08, 0.1), style.roofDark, { p: [0, PEAK_Y + 0.04, 0] });
 
   // Chimney.
-  const chimneyX = 1.25;
-  const chimneyZ = -0.7;
-  const chimneyTop = PEAK_Y + 0.25;
-  b.add(box(0.58, 1.7, 0.58, 0.06), C.stone, { p: [chimneyX, chimneyTop - 0.85, chimneyZ] });
-  b.add(box(0.74, 0.16, 0.74, 0.05), C.stoneDark, { p: [chimneyX, chimneyTop, chimneyZ] });
+  b.add(box(0.58, 1.7, 0.58, 0.06), C.stone, { p: [CHIMNEY_X, CHIMNEY_TOP - 0.85, CHIMNEY_Z] });
+  b.add(box(0.74, 0.16, 0.74, 0.05), C.stoneDark, { p: [CHIMNEY_X, CHIMNEY_TOP, CHIMNEY_Z] });
 
   // Front door with a little window, knob, awning and step.
   b.group({ p: [DOOR_LOCAL_X, BASE, front] }, () => {
     b.add(box(1.14, 1.78, 0.14, 0.06), C.woodDark, { p: [0, 0.89, 0.02] });
-    b.add(box(0.88, 1.56, 0.12, 0.05), C.door, { p: [0, 0.8, 0.07] });
+    b.add(box(0.88, 1.56, 0.12, 0.05), style.door, { p: [0, 0.8, 0.07] });
     b.add(box(0.38, 0.38, 0.06, 0.05), C.glass, { p: [0, 1.2, 0.12] });
-    b.add(new SphereGeometry(0.055, 8, 6), C.brass, { p: [0.3, 0.75, 0.15] });
-    b.add(box(1.6, 0.1, 0.62, 0.04), C.roofDark, { p: [0, 1.98, 0.3], r: [0.38, 0, 0] });
+    b.add(new IcosahedronGeometry(0.06, 0), C.brass, { p: [0.3, 0.75, 0.15] });
+    b.add(box(1.6, 0.1, 0.62, 0.04), style.roofDark, { p: [0, 1.98, 0.3], r: [0.38, 0, 0] });
     b.add(box(1.5, 0.18, 0.7, 0.06), C.stoneDark, { p: [0, -0.14, 0.42] });
   });
 
@@ -100,29 +113,8 @@ export function createHouse(): House {
   b.group({ p: [0.95, BASE + 1.32, front] }, () => addWindow(b, true));
   b.group({ p: [W / 2, BASE + 1.32, 0.1], r: [0, Math.PI / 2, 0] }, () => addWindow(b, false));
   b.group({ p: [-W / 2, BASE + 1.32, 0.1], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, false));
-  b.add(new CylinderGeometry(0.36, 0.36, 0.14, 14), C.wood, { p: [0, WALL_TOP + 0.62, front - 0.02], r: [Math.PI / 2, 0, 0] });
-  b.add(new CylinderGeometry(0.26, 0.26, 0.18, 14), C.glass, { p: [0, WALL_TOP + 0.62, front - 0.02], r: [Math.PI / 2, 0, 0] });
+  b.add(new CylinderGeometry(0.36, 0.36, 0.14, 10), C.wood, { p: [0, WALL_TOP + 0.62, front - 0.02], r: [Math.PI / 2, 0, 0] });
+  b.add(new CylinderGeometry(0.26, 0.26, 0.18, 10), C.glass, { p: [0, WALL_TOP + 0.62, front - 0.02], r: [Math.PI / 2, 0, 0] });
 
-  group.add(b.mesh());
-
-  // Chimney smoke: a few puffs that rise, drift and shrink. Shared geometry, no transparency.
-  const puffGeo = new Builder().add(new IcosahedronGeometry(0.2, 1), C.cloud).geometry();
-  const origin = new Vector3(chimneyX, chimneyTop + 0.15, chimneyZ);
-  const puffs: Mesh[] = [];
-  for (let i = 0; i < 4; i++) {
-    const puff = new Mesh(puffGeo, flatMaterial);
-    puffs.push(puff);
-    group.add(puff);
-  }
-
-  return {
-    group,
-    update(time) {
-      puffs.forEach((puff, i) => {
-        const life = (time * 0.22 + i / puffs.length) % 1;
-        puff.position.set(origin.x + life * 0.7 + Math.sin(life * 6 + i) * 0.08, origin.y + life * 1.9, origin.z + life * 0.25);
-        puff.scale.setScalar(Math.sin(life * Math.PI) * (0.7 + life * 0.9));
-      });
-    },
-  };
+  return b.geometry();
 }

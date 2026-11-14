@@ -1,5 +1,5 @@
 {
-  "stage.label": "Aşama 1 · Stil kilidi",
+  "stage.label": "Aşama 2 · Performans kapısı",
   "hint.camera": "Sürükle: döndür · İki parmak: kaydır ve yakınlaş",
   "stats.button": "Ölçüm",
   "stats.fps": "Kare hızı",
@@ -9,5 +9,9 @@
   "stats.gpu": "Model / doku",
   "stats.download": "İndirilen",
   "stats.quality": "Kalite",
+  "stats.people": "Görünen kişi",
+  "view.eye": "Göz hizası",
+  "view.overview": "Kuş bakışı",
+  "crowd.button": "Kalabalık",
   "stats.unknown": "bilinmiyor"
 }

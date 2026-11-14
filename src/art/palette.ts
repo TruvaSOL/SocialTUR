@@ -1,4 +1,4 @@
-﻿// The fixed palette. Every surface in the game takes its colour from here;
+// The fixed palette. Every surface in the game takes its colour from here;
 // models never bring their own textures or colours.
 export const PALETTE = {
   // ground
@@ -14,6 +14,14 @@ export const PALETTE = {
   wall: 0xfff3dc,
   roof: 0xe9745b,
   roofDark: 0xcd5b47,
+  wallWarm: 0xfde3c4,
+  wallCool: 0xf1f5ea,
+  roofTeal: 0x58aaa2,
+  roofTealDark: 0x418c85,
+  roofSlate: 0x7389b8,
+  roofSlateDark: 0x5c709c,
+  roofOchre: 0xecab4f,
+  roofOchreDark: 0xcd8c38,
   wood: 0xba7b4f,
   woodDark: 0x8c5a3c,
   door: 0x3f9a93,
@@ -39,6 +47,8 @@ export const PALETTE = {
   clothNavy: 0x3d5a80,
   clothRed: 0xe76f51,
   clothTeal: 0x2a9d8f,
+  clothPlum: 0x8d6a9f,
+  clothCream: 0xfaf0dc,
   shoe: 0x4a3b35,
   ink: 0x3a2a26,
   blush: 0xf59a9a,

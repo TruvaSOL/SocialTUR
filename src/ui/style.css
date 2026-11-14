@@ -70,6 +70,16 @@ body {
   pointer-events: auto;
 }
 
+.actions {
+  position: absolute;
+  inset: auto 0 58px 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.actions .chip,
 .buttons .chip {
   position: static;
   min-width: 44px;
@@ -78,6 +88,7 @@ body {
   font-weight: 600;
 }
 
+.actions .chip:active,
 .buttons .chip:active {
   transform: scale(0.96);
 }

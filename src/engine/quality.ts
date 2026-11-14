@@ -1,13 +1,28 @@
 import type { Stage } from './stage';
 
-/** Resolution steps, as a fraction of the device's base pixel ratio. The last step also drops the shadow. */
-const STEPS = [1, 0.85, 0.7, 0.55];
+interface Step {
+  /** Fraction of the device's base pixel ratio. */
+  pixel: number;
+  shadow: boolean;
+  /** Crowd characters farther than this (metres) from the point of interest are not drawn. */
+  crowdRange: number;
+}
+
+/** From best to cheapest: resolution goes first, then the shadow, then the far crowd. */
+const STEPS: Step[] = [
+  { pixel: 1, shadow: true, crowdRange: Infinity },
+  { pixel: 0.85, shadow: true, crowdRange: Infinity },
+  { pixel: 0.7, shadow: true, crowdRange: Infinity },
+  { pixel: 0.7, shadow: false, crowdRange: Infinity },
+  { pixel: 0.55, shadow: false, crowdRange: 90 },
+  { pixel: 0.55, shadow: false, crowdRange: 55 },
+];
 const WINDOW_SECONDS = 1.5;
 const WARMUP_SECONDS = 3;
 
 /**
- * Measures the frame rate and trades resolution (then the shadow) for speed
- * when the device cannot hold 30 fps, and gives it back when there is headroom.
+ * Measures the frame rate and trades quality for speed when the device
+ * cannot hold 30 fps, and gives it back when there is headroom.
  */
 export class AutoQuality {
   fps = 0;
@@ -20,8 +35,20 @@ export class AutoQuality {
 
   constructor(private stage: Stage) {}
 
+  private locked = false;
+
   get label(): string {
-    return `${this.step + 1}/${STEPS.length}`;
+    return `${this.step + 1}/${STEPS.length}${this.locked ? ' *' : ''}`;
+  }
+
+  /** Measurement aid: hold one quality step (1 = best) so the raw frame rate can be read. */
+  lock(oneBased: number): void {
+    this.locked = true;
+    this.apply(Math.min(STEPS.length, Math.max(1, Math.round(oneBased))) - 1);
+  }
+
+  get crowdRange(): number {
+    return STEPS[this.step].crowdRange;
   }
 
   frame(dt: number): void {
@@ -35,7 +62,7 @@ export class AutoQuality {
     this.fps = this.frames / this.elapsed;
     this.frames = 0;
     this.elapsed = 0;
-    if (this.age < WARMUP_SECONDS) return;
+    if (this.age < WARMUP_SECONDS || this.locked) return;
 
     if (this.fps < 27 && this.step < STEPS.length - 1) {
       this.goodWindows = 0;
@@ -53,9 +80,9 @@ export class AutoQuality {
 
   private apply(step: number): void {
     this.step = step;
-    const { renderer, sun, basePixelRatio } = this.stage;
-    renderer.setPixelRatio(basePixelRatio * STEPS[step]);
+    const { renderer, basePixelRatio } = this.stage;
+    renderer.setPixelRatio(basePixelRatio * STEPS[step].pixel);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
-    sun.castShadow = step < STEPS.length - 1;
+    this.stage.setShadows(STEPS[step].shadow);
   }
 }

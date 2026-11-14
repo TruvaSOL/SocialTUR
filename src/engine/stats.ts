@@ -23,6 +23,8 @@ export class StatsOverlay {
     private el: HTMLElement,
     private renderer: WebGLRenderer,
     private quality: AutoQuality,
+    /** Extra rows supplied by the game (for example how many characters are drawn). */
+    private extra: () => [string, string][] = () => [],
   ) {}
 
   get visible(): boolean {
@@ -57,6 +59,7 @@ export class StatsOverlay {
       [t('stats.gpu'), `${geometries} / ${textures}`],
       [t('stats.download'), mb(downloadedBytes())],
       [t('stats.quality'), this.quality.label],
+      ...this.extra(),
     ];
     const width = Math.max(...rows.map(([label]) => label.length));
     this.el.textContent = rows.map(([label, value]) => `${label.padEnd(width)}  ${value}`).join('\n');

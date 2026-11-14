@@ -42,10 +42,10 @@ Ev içi mobilyalar ve müzik ilk yüklemeye dahil değildir; gerektiğinde iner.
 | Varlık | Üçgen |
 |--------|-------|
 | Karakter (bütün parçalarıyla) | 2.500 |
-| Uzak karakter | 400 |
+| Kalabalık karakteri | 600 |
 | Ev (dış) | 2.000 |
 | Büyük ortak bina (liman, aşama başına) | 6.000 |
-| Ağaç | 300 |
+| Ağaç | 450 |
 | Küçük eşya (bank, lamba) | 200 |
 | Mobilya | 400 |
 
@@ -54,13 +54,25 @@ Ev içi mobilyalar ve müzik ilk yüklemeye dahil değildir; gerektiğinde iner.
 | Tarih | Sahne | Çizim çağrısı | Üçgen | Yayın boyutu | Kare hızı |
 |-------|-------|---------------|-------|--------------|-----------|
 | 2026-11-14 | Aşama 1: zemin, ev, ağaç, bir karakter, 4 bulut | 30 | 18.136 | 0,59 MB (sıkıştırılmamış toplam) | ölçülemedi |
+| 2026-11-14 | Aşama 2, kuş bakışı, bütün mahalle, 150 kişi | 40 | 232.138 | 0,60 MB | ölçülemedi |
+| 2026-11-14 | Aşama 2, kuş bakışı, bütün mahalle, 200 kişi | 40 | 262.438 | 0,60 MB | ölçülemedi |
+| 2026-11-14 | Aşama 2, göz hizası, sokak boyunca (150 kişiden 50-70'i görünür) | 35-36 | 145.000-166.000 | 0,60 MB | ölçülemedi |
 
-Çizim çağrısı ve üçgen sayıları gölge geçişini de içerir. Kare hızı geliştirme ortamında ölçülemedi (önizleme penceresi arka planda çalıştığı için kare üretmiyor); gerçek telefonda ölçülecek.
+Aşama 1 satırı gölge geçişini de içerir. Aşama 2'de gölge yalnızca bir kez çizildiği için satırlar olağan kareyi gösterir; gölgenin çizildiği tek karede sayılar yaklaşık iki katıdır.
+
+Aşama 2 mahallesinin dökümü: zemin ve küçük süsler 24.912 üçgen (tek çizim), 52 ev x 1.124, 114 ağaç x 434, kalabalık karakteri 600, oyuncunun kendi karakteri yaklaşık 2.400. Kalabalığın işlemci maliyeti bu bilgisayarda 200 kişi için kare başına 0,4 milisaniye.
+
+**Kare hızı bu bilgisayarda ölçülemez.** Bilgisayarda ekran kartı yok; tarayıcı görüntüyü işlemciyle üretiyor ("Microsoft Basic Render Driver") ve saniyede 7-10 kare veriyor. Bu sayı telefon hakkında hiçbir şey söylemez. Performans kapısının kararı gerçek telefonda verilecek.
+
+Kuş bakışında üçgen sayısı orta sınıf telefon bütçesinin (150.000) üstünde, güncel telefon bütçesinin (300.000) altında. Telefonda yetmezse sıradaki önlemler: uzak evler ve ağaçlar için sade model, kalabalıkta uzak karakterler için daha sade model.
+
+Telefonda ölçüm için adres seçenekleri: `?stats` ölçüm katmanını açar; `?quality=1` (1-6) otomatik kaliteyi durdurup tek bir kalite basamağını sabitler, böylece ham kare hızı okunur.
 
 ## Kurallar
 
 - Tekrarlayan her model tek çizim çağrısında toplanır.
-- Işık ucuz: bir güneş, bir ortam ışığı, en fazla bir gölge.
+- Işık ucuz: bir güneş, bir ortam ışığı, en fazla bir gölge. Gölgeyi yalnızca duran şeyler (ev, ağaç) düşürür ve gölge bir kez çizilir; yürüyen karakterlerin altında koyu bir yuvarlak leke vardır.
+- Kalabalıkta yalnızca ekranda görünen karakterler hesaplanır ve çizilir.
 - Renkler ortak paletten; modelin kendi dokusu kabul edilmez.
 - Kalite otomatik: kare hızı düşerse önce çözünürlük, sonra gölge, sonra çizim mesafesi ve karakter sayısı azalır.
 - Yapay zekâ ile üretilen modeller (karar #5) bu sınırlara indirilmeden oyuna giremez.
