@@ -36,7 +36,7 @@ const SHOES = [C.shoe, C.ink, C.wood];
 /** Soft dark disc under a character. Far cheaper than a real shadow for a moving crowd. */
 export const blobGeometry = new CircleGeometry(0.34, 10).rotateX(-Math.PI / 2);
 export const blobMaterial = new MeshBasicMaterial({ color: 0x2e3b22, transparent: true, opacity: 0.22, depthWrite: false });
-export const BLOB_Y = 0.09;
+export const BLOB_Y = 0.1;
 
 const one = (build: (b: Builder) => void): BufferGeometry => {
   const b = new Builder();

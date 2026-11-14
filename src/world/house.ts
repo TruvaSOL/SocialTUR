@@ -1,225 +1,207 @@
-import { BoxGeometry, type BufferGeometry, CylinderGeometry, ExtrudeGeometry, IcosahedronGeometry, Shape } from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { BoxGeometry, type BufferGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry } from 'three';
 import { Builder } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
 
 /** The colours that change from house to house. Everything else is shared. */
 export interface HouseStyle {
   wall: number;
+  /** Door, shutters, railings. */
+  accent: number;
+  /** Floor of the roof terrace, seen from above. */
   roof: number;
-  roofDark: number;
-  door: number;
 }
 
 export const HOUSE_STYLES: HouseStyle[] = [
-  { wall: C.wall, roof: C.roof, roofDark: C.roofDark, door: C.door },
-  { wall: C.wallWarm, roof: C.roofTeal, roofDark: C.roofTealDark, door: C.clothRed },
-  { wall: C.wall, roof: C.roofSlate, roofDark: C.roofSlateDark, door: C.clothMustard },
-  { wall: C.wallCool, roof: C.roofOchre, roofDark: C.roofOchreDark, door: C.clothNavy },
+  { wall: C.white, accent: C.aegean, roof: C.terracotta },
+  { wall: C.wallPeach, accent: C.clothTeal, roof: C.tile },
+  { wall: C.wallLemon, accent: C.coral, roof: C.terracotta },
+  { wall: C.wallSky, accent: C.clothNavy, roof: C.tile },
 ];
 
-/** A house model: how to build it and where its door, sides and chimney are (house coordinates, front faces +z). */
+/** A house model: how to build it and where its door and sides are (house coordinates, front faces +z). */
 export interface HouseShape {
   build(style: HouseStyle): BufferGeometry;
   doorX: number;
   halfWidth: number;
-  /** Where chimney smoke starts. */
-  smoke: { x: number; y: number; z: number };
 }
 
 /** Every house's front wall sits this far from its centre, so lots line up along the street. */
 export const HOUSE_HALF_DEPTH = 1.8;
-const BASE = 0.22; // top of the stone foundation
-const OVERHANG = 0.45;
+const BASE = 0.12; // top of the plinth
 
-// Small trim pieces are plain boxes; only pieces big enough to show a soft edge pay for one.
-export const box = (w: number, h: number, d: number, r = 0.05) =>
-  r < 0.08 ? new BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, 1, r);
+const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
 
-interface Shell {
-  wallTop: number;
-  peakY: number;
-  front: number;
+// The look: modern coastal town. Crisp white and pastel cubes, flat roofs used as terraces,
+// coloured doors and shutters, a pergola or a parasol on the roof, flowers in pots.
+
+/** A flat-roofed block from the plinth up, with a parapet and a terrace floor. x/z give its centre. */
+function block(b: Builder, style: HouseStyle, w: number, h: number, d: number, x: number, z: number, y0 = BASE): number {
+  const top = y0 + h;
+  b.add(box(w, h, d), style.wall, { p: [x, y0 + h / 2, z] });
+  // Parapet: four low walls around the roof; the terrace floor sits just inside them.
+  const p = 0.32;
+  b.add(box(w + 0.1, p, 0.16), style.wall, { p: [x, top + p / 2, z + d / 2 - 0.03] });
+  b.add(box(w + 0.1, p, 0.16), style.wall, { p: [x, top + p / 2, z - d / 2 + 0.03] });
+  b.add(box(0.16, p, d + 0.1), style.wall, { p: [x + w / 2 - 0.03, top + p / 2, z] });
+  b.add(box(0.16, p, d + 0.1), style.wall, { p: [x - w / 2 + 0.03, top + p / 2, z] });
+  b.add(box(w - 0.2, 0.06, d - 0.2), style.roof, { p: [x, top + 0.03, z] });
+  return top;
 }
 
-/**
- * Foundation, walls and a gable roof whose ridge runs front to back.
- * Proportions: short walls, big roof. That ratio is what makes a house read as cosy.
- */
-function shell(b: Builder, style: HouseStyle, w: number, d: number, wallH: number, rise: number): Shell {
-  const wallTop = BASE + wallH;
-  const roofHalf = w / 2 + OVERHANG;
-  const eaveY = wallTop - (rise * OVERHANG) / roofHalf;
-  const peakY = eaveY + rise;
-  const angle = Math.atan2(rise, roofHalf);
-  const front = d / 2;
-
-  b.add(box(w + 0.3, 0.3, d + 0.3), C.stone, { p: [0, 0.12, 0] });
-  b.add(box(w, wallH, d, 0.1), style.wall, { p: [0, BASE + wallH / 2, 0] });
-
-  // Gable ends: the triangular wall under the roof.
-  const gable = new Shape();
-  gable.moveTo(-w / 2 + 0.03, 0);
-  gable.lineTo(w / 2 - 0.03, 0);
-  gable.lineTo(0, peakY - wallTop);
-  gable.closePath();
-  b.add(new ExtrudeGeometry(gable, { depth: d - 0.06, bevelEnabled: false }), style.wall, {
-    p: [0, wallTop - 0.02, -(d - 0.06) / 2],
-  });
-
-  // Timber beam where wall meets gable, front and back.
-  b.add(box(w + 0.08, 0.16, 0.1), C.woodDark, { p: [0, wallTop, front + 0.01] });
-  b.add(box(w + 0.08, 0.16, 0.1), C.woodDark, { p: [0, wallTop, -front - 0.01] });
-
-  // Roof: two thick slabs, a darker trim along each eave, and a ridge cap.
-  const slabLen = Math.hypot(roofHalf, rise) + 0.14;
-  const roofDepth = d + 0.9;
-  for (const side of [1, -1]) {
-    b.group({ p: [(side * roofHalf) / 2, eaveY + rise / 2, 0], r: [0, 0, -side * angle] }, () => {
-      b.add(box(slabLen, 0.24, roofDepth, 0.08), style.roof);
-      b.add(box(0.34, 0.3, roofDepth + 0.06), style.roofDark, { p: [(side * slabLen) / 2 - side * 0.12, 0, 0] });
-      // Two raised rows hint at tiles without adding real detail.
-      b.add(box(0.12, 0.28, roofDepth + 0.02), style.roofDark, { p: [side * 0.25, 0, 0] });
-      b.add(box(0.12, 0.28, roofDepth + 0.02), style.roofDark, { p: [-side * 0.6, 0, 0] });
-    });
-  }
-  b.add(box(0.46, 0.26, roofDepth + 0.08, 0.1), style.roofDark, { p: [0, peakY + 0.04, 0] });
-  return { wallTop, peakY, front };
+/** A window with shutters on a +z wall, centred on the current group. */
+function addWindow(b: Builder, style: HouseStyle, w = 0.9, h = 1.0, shutters = true): void {
+  b.add(box(w + 0.12, h + 0.12, 0.08), C.white, { p: [0, 0, 0.02] });
+  b.add(box(w, h, 0.08), C.glass, { p: [0, 0, 0.05] });
+  b.add(box(w + 0.3, 0.08, 0.2), C.white, { p: [0, -h / 2 - 0.1, 0.08] });
+  if (!shutters) return;
+  for (const side of [1, -1]) b.add(box(0.36, h + 0.08, 0.07), style.accent, { p: [side * (w / 2 + 0.24), 0, 0.05] });
 }
 
-/** A framed window on a wall facing +z of the current group. */
-function addWindow(b: Builder, flowerBox: boolean): void {
-  b.add(box(1.16, 1.06, 0.14), C.wood, { p: [0, 0, 0.02] });
-  b.add(box(0.9, 0.8, 0.1), C.glass, { p: [0, 0, 0.06] });
-  b.add(box(0.07, 0.8, 0.06), C.wood, { p: [0, 0, 0.1] });
-  b.add(box(0.9, 0.07, 0.06), C.wood, { p: [0, 0, 0.1] });
-  b.add(box(1.32, 0.1, 0.26), C.woodDark, { p: [0, -0.58, 0.1] });
-  if (!flowerBox) return;
-  b.add(box(1.12, 0.24, 0.28), C.wood, { p: [0, -0.76, 0.24] });
-  for (let i = 0; i < 5; i++) {
-    const x = -0.42 + i * 0.21;
-    b.add(new IcosahedronGeometry(0.13, 0), C.leaf, { p: [x, -0.6, 0.25], r: [i, i * 2, 0] });
-    b.add(new IcosahedronGeometry(0.075, 0), i % 2 ? C.flowerYellow : C.flowerPink, { p: [x + 0.04, -0.49, 0.3] });
+/** A wide picture window without shutters. */
+function addGlassWall(b: Builder, w: number, h: number): void {
+  b.add(box(w + 0.14, h + 0.14, 0.08), C.metalDark, { p: [0, 0, 0.02] });
+  b.add(box(w, h, 0.08), C.glass, { p: [0, 0, 0.05] });
+  b.add(box(0.06, h, 0.1), C.metalDark, { p: [0, 0, 0.06] });
+}
+
+/** Front door in the accent colour, a flat canopy over it and a step. Placed at plinth level on a +z wall. */
+function addDoor(b: Builder, style: HouseStyle): void {
+  b.add(box(1.06, 2.06, 0.08), C.white, { p: [0, 1.03, 0.02] });
+  b.add(box(0.9, 1.95, 0.1), style.accent, { p: [0, 0.98, 0.05] });
+  b.add(new IcosahedronGeometry(0.05, 0), C.brass, { p: [0.3, 1.0, 0.13] });
+  b.add(box(1.7, 0.1, 0.8), C.white, { p: [0, 2.3, 0.4] });
+  b.add(box(1.5, 0.12, 0.6), C.concrete, { p: [0, -0.06, 0.34] });
+}
+
+/** A terracotta pot with a plant; `flower` adds a splash of colour. */
+function pot(b: Builder, x: number, y: number, z: number, flower: number | null = null, size = 1): void {
+  b.add(new CylinderGeometry(0.2 * size, 0.15 * size, 0.3 * size, 7), C.terracotta, { p: [x, y + 0.15 * size, z] });
+  b.add(new IcosahedronGeometry(0.28 * size, 0), flower ?? C.leaf, { p: [x, y + 0.5 * size, z] });
+}
+
+/** Bougainvillea climbing a wall corner: a few pink blobs over a green one. */
+function bougainvillea(b: Builder, x: number, y: number, z: number): void {
+  b.add(new IcosahedronGeometry(0.5, 0), C.leafDark, { p: [x, y, z], s: [1, 1.3, 0.7] });
+  b.add(new IcosahedronGeometry(0.42, 0), C.flowerPink, { p: [x + 0.25, y + 0.5, z + 0.05], s: [1, 1, 0.7] });
+  b.add(new IcosahedronGeometry(0.34, 0), C.flowerPink, { p: [x - 0.2, y + 0.95, z + 0.05], s: [1, 1, 0.7] });
+}
+
+/** A timber pergola: four posts and slats, footprint w x d, standing on height y. */
+function pergola(b: Builder, x: number, y: number, z: number, w: number, d: number, h = 2.1): void {
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(box(0.1, h, 0.1), C.wood, { p: [x + (sx * w) / 2, y + h / 2, z + (sz * d) / 2] });
+  for (const sz of [-1, 1]) b.add(box(w + 0.3, 0.1, 0.1), C.wood, { p: [x, y + h, z + (sz * d) / 2] });
+  const slats = Math.max(3, Math.round(w / 0.45));
+  for (let i = 0; i < slats; i++) {
+    b.add(box(0.07, 0.07, d + 0.4), C.wood, { p: [x - w / 2 + (i / (slats - 1)) * w, y + h + 0.08, z] });
   }
 }
 
-/** Front door with a little window, knob and step; optionally a small awning. Placed at ground level on a +z wall. */
-function addDoor(b: Builder, style: HouseStyle, awning: boolean): void {
-  b.add(box(1.14, 1.78, 0.14), C.woodDark, { p: [0, 0.89, 0.02] });
-  b.add(box(0.88, 1.56, 0.12), style.door, { p: [0, 0.8, 0.07] });
-  b.add(box(0.38, 0.38, 0.06), C.glass, { p: [0, 1.2, 0.12] });
-  b.add(new IcosahedronGeometry(0.06, 0), C.brass, { p: [0.3, 0.75, 0.15] });
-  if (awning) b.add(box(1.6, 0.1, 0.62), style.roofDark, { p: [0, 1.98, 0.3], r: [0.38, 0, 0] });
-  b.add(box(1.5, 0.18, 0.7), C.stoneDark, { p: [0, -0.14, 0.42] });
+/** Rooftop solar water heater: a white tank over a dark tilted panel. */
+function solarHeater(b: Builder, x: number, y: number, z: number): void {
+  b.add(box(0.9, 0.06, 1.2), C.metalDark, { p: [x, y + 0.42, z], r: [0.5, 0, 0] });
+  b.add(new CylinderGeometry(0.2, 0.2, 1.0, 7), C.white, { p: [x, y + 0.86, z - 0.5], r: [0, 0, Math.PI / 2] });
+  for (const sx of [-0.38, 0.38]) b.add(box(0.05, 0.75, 0.05), C.metal, { p: [x + sx, y + 0.4, z - 0.5] });
 }
 
-function addChimney(b: Builder, x: number, z: number, top: number): void {
-  b.add(box(0.58, 1.7, 0.58), C.stone, { p: [x, top - 0.85, z] });
-  b.add(box(0.74, 0.16, 0.74), C.stoneDark, { p: [x, top, z] });
+function parasol(b: Builder, x: number, y: number, z: number, color: number): void {
+  b.add(new CylinderGeometry(0.03, 0.03, 1.9, 4, 1, true), C.metalDark, { p: [x, y + 0.95, z] });
+  b.add(new ConeGeometry(1.0, 0.45, 8), color, { p: [x, y + 2.0, z] });
+  b.add(new CylinderGeometry(0.4, 0.4, 0.06, 8), C.white, { p: [x, y + 0.7, z] });
 }
 
-function addRoundWindow(b: Builder, y: number, z: number): void {
-  b.add(new CylinderGeometry(0.36, 0.36, 0.14, 10), C.wood, { p: [0, y, z], r: [Math.PI / 2, 0, 0] });
-  b.add(new CylinderGeometry(0.26, 0.26, 0.18, 10), C.glass, { p: [0, y, z], r: [Math.PI / 2, 0, 0] });
+/** A thin railing along x from x0 to x1 at depth z, standing on height y. */
+function railing(b: Builder, style: HouseStyle, x0: number, x1: number, y: number, z: number): void {
+  b.add(box(x1 - x0, 0.06, 0.06), style.accent, { p: [(x0 + x1) / 2, y + 0.85, z] });
+  const n = Math.max(2, Math.round((x1 - x0) / 0.45));
+  for (let i = 0; i <= n; i++) b.add(box(0.05, 0.85, 0.05), style.accent, { p: [x0 + ((x1 - x0) * i) / n, y + 0.42, z] });
 }
 
-// ---- Cottage: the Stage 1 house. Low walls, big roof, door to one side. ----
-const COTTAGE = { w: 4.2, wallH: 2.3, rise: 1.9, chimneyX: 1.25, chimneyZ: -0.7, doorX: -0.95 };
-const COTTAGE_PEAK = BASE + COTTAGE.wallH - (COTTAGE.rise * OVERHANG) / (COTTAGE.w / 2 + OVERHANG) + COTTAGE.rise;
+const plinth = (b: Builder, w: number, d: number, x = 0, z = 0) =>
+  b.add(box(w + 0.3, BASE + 0.1, d + 0.3), C.concrete, { p: [x, (BASE + 0.1) / 2 - 0.05, z] });
 
-function buildCottage(style: HouseStyle): BufferGeometry {
+// ---- Cube house: one storey, the whole roof a terrace under a pergola. ----
+function buildCube(style: HouseStyle): BufferGeometry {
   const b = new Builder();
-  const s = shell(b, style, COTTAGE.w, HOUSE_HALF_DEPTH * 2, COTTAGE.wallH, COTTAGE.rise);
-  addChimney(b, COTTAGE.chimneyX, COTTAGE.chimneyZ, s.peakY + 0.25);
-  b.group({ p: [COTTAGE.doorX, BASE, s.front] }, () => addDoor(b, style, true));
-  // Windows: one beside the door, one on each side wall, a round one in the gable.
-  b.group({ p: [0.95, BASE + 1.32, s.front] }, () => addWindow(b, true));
-  b.group({ p: [COTTAGE.w / 2, BASE + 1.32, 0.1], r: [0, Math.PI / 2, 0] }, () => addWindow(b, false));
-  b.group({ p: [-COTTAGE.w / 2, BASE + 1.32, 0.1], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, false));
-  addRoundWindow(b, s.wallTop + 0.62, s.front - 0.02);
-  return b.geometry();
-}
-
-// ---- Townhouse: two storeys, narrow, with a little balcony. ----
-const TOWN = { w: 3.7, wallH: 4.2, rise: 1.7, chimneyX: -1.1, chimneyZ: -0.6, doorX: -0.8 };
-const TOWN_PEAK = BASE + TOWN.wallH - (TOWN.rise * OVERHANG) / (TOWN.w / 2 + OVERHANG) + TOWN.rise;
-
-function buildTownhouse(style: HouseStyle): BufferGeometry {
-  const b = new Builder();
-  const s = shell(b, style, TOWN.w, HOUSE_HALF_DEPTH * 2, TOWN.wallH, TOWN.rise);
-  addChimney(b, TOWN.chimneyX, TOWN.chimneyZ, s.peakY + 0.25);
-  // A timber band marks the floor between the two storeys.
-  b.add(box(TOWN.w + 0.06, 0.14, HOUSE_HALF_DEPTH * 2 + 0.06), C.woodDark, { p: [0, BASE + 2.2, 0] });
-  b.group({ p: [TOWN.doorX, BASE, s.front] }, () => addDoor(b, style, true));
-  b.group({ p: [0.8, BASE + 1.3, s.front] }, () => addWindow(b, false));
-  const upper = BASE + 3.25;
-  b.group({ p: [-0.8, upper, s.front] }, () => addWindow(b, true));
-  b.group({ p: [0.8, upper, s.front] }, () => addWindow(b, false));
-  // Balcony under the right-hand upstairs window.
-  b.group({ p: [0.8, BASE + 2.42, s.front + 0.36] }, () => {
-    b.add(box(1.6, 0.1, 0.72), C.woodDark);
-    b.add(box(1.6, 0.07, 0.07), C.wood, { p: [0, 0.52, 0.32] });
-    for (const x of [-0.76, -0.38, 0, 0.38, 0.76]) b.add(box(0.06, 0.5, 0.06), C.wood, { p: [x, 0.27, 0.32] });
-    b.add(box(0.06, 0.5, 0.06), C.wood, { p: [-0.76, 0.27, 0] });
-    b.add(box(0.06, 0.5, 0.06), C.wood, { p: [0.76, 0.27, 0] });
-  });
-  b.group({ p: [TOWN.w / 2, upper, 0], r: [0, Math.PI / 2, 0] }, () => addWindow(b, false));
-  b.group({ p: [-TOWN.w / 2, BASE + 1.3, 0.3], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, false));
-  addRoundWindow(b, s.wallTop + 0.55, s.front - 0.02);
-  return b.geometry();
-}
-
-// ---- Bungalow: wide and low, roof ridge running side to side, a porch across the door. ----
-const BUNG = { w: 5.4, wallH: 2.2, rise: 1.45, chimneyX: 1.5, chimneyZ: -0.5 };
-const BUNG_PEAK = BASE + BUNG.wallH - (BUNG.rise * OVERHANG) / (HOUSE_HALF_DEPTH + OVERHANG) + BUNG.rise;
-
-function buildBungalow(style: HouseStyle): BufferGeometry {
-  const b = new Builder();
-  // The same shell turned a quarter: its gables now face the sides and an eave faces the street.
-  b.group({ r: [0, Math.PI / 2, 0] }, () => shell(b, style, HOUSE_HALF_DEPTH * 2, BUNG.w, BUNG.wallH, BUNG.rise));
+  const w = 4.4;
+  const d = HOUSE_HALF_DEPTH * 2;
   const front = HOUSE_HALF_DEPTH;
-  addChimney(b, BUNG.chimneyX, BUNG.chimneyZ, BUNG_PEAK + 0.25);
-  b.group({ p: [0, BASE, front] }, () => addDoor(b, style, false));
-  b.group({ p: [-1.75, BASE + 1.28, front] }, () => addWindow(b, true));
-  b.group({ p: [1.75, BASE + 1.28, front] }, () => addWindow(b, false));
-  // Porch: a floor, two posts, a low rail and a lean-to roof.
-  b.add(box(3.2, 0.18, 1.15), C.stoneDark, { p: [0, 0.11, front + 0.6] });
-  for (const x of [-1.45, 1.45]) b.add(box(0.14, 1.95, 0.14), C.wood, { p: [x, 1.15, front + 1.05] });
-  b.add(box(1.0, 0.07, 0.07), C.wood, { p: [-0.95, 0.75, front + 1.05] });
-  b.add(box(1.0, 0.07, 0.07), C.wood, { p: [0.95, 0.75, front + 1.05] });
-  b.add(box(3.5, 0.12, 1.5), style.roofDark, { p: [0, 2.18, front + 0.62], r: [0.2, 0, 0] });
-  // A dormer in the roof gives the long front some life.
-  b.group({ p: [0, BASE + BUNG.wallH + 0.55, front - 0.55] }, () => {
-    b.add(box(1.3, 0.9, 0.9), style.wall);
-    b.add(box(0.8, 0.5, 0.08), C.glass, { p: [0, 0, 0.46] });
-    b.add(box(1.6, 0.12, 1.2), style.roof, { p: [0, 0.5, 0.05] });
-  });
-  // Round windows in the two side gables.
+  plinth(b, w, d);
+  const top = block(b, style, w, 2.9, d, 0, 0);
+  b.group({ p: [-1.05, BASE, front] }, () => addDoor(b, style));
+  b.group({ p: [0.95, BASE + 1.45, front] }, () => addWindow(b, style, 1.1, 1.1));
   for (const side of [1, -1]) {
-    b.group({ p: [side * (BUNG.w / 2 - 0.02), BASE + BUNG.wallH + 0.5, 0], r: [0, (side * Math.PI) / 2, 0] }, () =>
-      addRoundWindow(b, 0, 0),
-    );
+    b.group({ p: [(side * w) / 2, BASE + 1.5, 0.1], r: [0, (side * Math.PI) / 2, 0] }, () => addWindow(b, style, 0.8, 1.0, false));
   }
+  // Roof terrace.
+  pergola(b, -0.8, top + 0.06, 0.2, 2.2, 2.2);
+  pot(b, 1.7, top + 0.06, 1.2, C.flowerPink);
+  pot(b, 1.75, top + 0.06, 0.5, null);
+  solarHeater(b, 1.4, top + 0.06, -0.7);
+  // Street level: flowers by the door, bougainvillea on the corner.
+  pot(b, -1.9, 0, front + 0.35, C.coral);
+  bougainvillea(b, w / 2 - 0.1, 1.2, front + 0.12);
+  return b.geometry();
+}
+
+// ---- Two-storey house: a smaller upper floor leaves a terrace beside it; a balcony faces the street. ----
+function buildTwoStorey(style: HouseStyle): BufferGeometry {
+  const b = new Builder();
+  const w = 4.4;
+  const d = HOUSE_HALF_DEPTH * 2;
+  const front = HOUSE_HALF_DEPTH;
+  plinth(b, w, d);
+  const first = block(b, style, w, 2.8, d, 0, 0);
+  const upperW = 2.9;
+  const upperX = -w / 2 + upperW / 2;
+  const top = block(b, style, upperW, 2.6, d - 0.5, upperX, -0.25, first);
+  b.group({ p: [-1.05, BASE, front] }, () => addDoor(b, style));
+  b.group({ p: [1.0, BASE + 1.4, front] }, () => addWindow(b, style, 1.1, 1.1));
+  // Upstairs: a glass door onto a small balcony.
+  b.group({ p: [upperX, first + 1.2, front - 0.5] }, () => addGlassWall(b, 1.5, 1.9));
+  b.add(box(upperW, 0.1, 0.9), C.white, { p: [upperX, first + 0.1, front + 0.1] });
+  railing(b, style, upperX - upperW / 2 + 0.05, upperX + upperW / 2 - 0.05, first + 0.15, front + 0.5);
+  // Side terrace on the lower roof.
+  parasol(b, 1.45, first + 0.06, 0.2, style.accent);
+  pot(b, 1.9, first + 0.06, 1.3, C.flowerYellow);
+  b.group({ p: [-w / 2, BASE + 1.4, 0], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, style, 0.8, 1.0, false));
+  b.group({ p: [w / 2, BASE + 1.4, 0], r: [0, Math.PI / 2, 0] }, () => addWindow(b, style, 0.8, 1.0, false));
+  b.group({ p: [-w / 2, first + 1.3, -0.2], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, style, 0.8, 1.0));
+  solarHeater(b, upperX + 0.5, top + 0.06, -0.6);
+  pot(b, 1.95, 0, front + 0.35, C.flowerPink);
+  bougainvillea(b, -w / 2 + 0.1, 1.3, front + 0.12);
+  return b.geometry();
+}
+
+// ---- Wide villa: a tall block and a lower wing with a glass front and a shaded patio. ----
+function buildVilla(style: HouseStyle): BufferGeometry {
+  const b = new Builder();
+  const front = HOUSE_HALF_DEPTH;
+  const mainW = 3.2;
+  const wingW = 2.6;
+  const mainX = -wingW / 2;
+  const wingX = mainW / 2;
+  plinth(b, mainW + wingW, front * 2);
+  const top = block(b, style, mainW, 3.4, front * 2, mainX, 0);
+  const wingTop = block(b, style, wingW, 2.5, front * 2 - 0.8, wingX, -0.4);
+  b.group({ p: [mainX - 0.4, BASE, front] }, () => addDoor(b, style));
+  b.group({ p: [mainX + 0.9, BASE + 2.2, front] }, () => addWindow(b, style, 0.7, 0.7, false));
+  // Wing: glass front opening onto a patio under a pergola.
+  b.group({ p: [wingX, BASE + 1.15, front - 0.8] }, () => addGlassWall(b, 1.9, 1.9));
+  b.add(box(wingW, 0.1, 0.9), C.tile, { p: [wingX, BASE - 0.02, front - 0.35] });
+  pergola(b, wingX, BASE, front - 0.3, wingW - 0.4, 0.9, 2.3);
+  pot(b, wingX + 0.9, BASE, front - 0.1, C.flowerPink, 0.9);
+  b.group({ p: [mainX - mainW / 2, BASE + 1.5, 0], r: [0, -Math.PI / 2, 0] }, () => addWindow(b, style, 0.8, 1.0));
+  b.group({ p: [wingX + wingW / 2, BASE + 1.4, -0.4], r: [0, Math.PI / 2, 0] }, () => addWindow(b, style, 0.8, 1.0, false));
+  // Roofs: sun loungers' parasol on the wing, water heater on the main block.
+  parasol(b, wingX, wingTop + 0.06, -0.4, C.white);
+  solarHeater(b, mainX + 0.3, top + 0.06, -0.5);
+  pot(b, mainX - 1.1, top + 0.06, 1.2, null);
+  bougainvillea(b, mainX - mainW / 2 + 0.1, 1.3, front + 0.12);
   return b.geometry();
 }
 
 export const HOUSE_SHAPES: HouseShape[] = [
-  {
-    build: buildCottage,
-    doorX: COTTAGE.doorX,
-    halfWidth: COTTAGE.w / 2,
-    smoke: { x: COTTAGE.chimneyX, y: COTTAGE_PEAK + 0.4, z: COTTAGE.chimneyZ },
-  },
-  {
-    build: buildTownhouse,
-    doorX: TOWN.doorX,
-    halfWidth: TOWN.w / 2,
-    smoke: { x: TOWN.chimneyX, y: TOWN_PEAK + 0.4, z: TOWN.chimneyZ },
-  },
-  {
-    build: buildBungalow,
-    doorX: 0,
-    halfWidth: BUNG.w / 2,
-    smoke: { x: BUNG.chimneyX, y: BUNG_PEAK + 0.4, z: BUNG.chimneyZ },
-  },
+  { build: buildCube, doorX: -1.05, halfWidth: 2.2 },
+  { build: buildTwoStorey, doorX: -1.05, halfWidth: 2.2 },
+  { build: buildVilla, doorX: -1.7, halfWidth: 2.9 },
 ];

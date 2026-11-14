@@ -22,7 +22,9 @@ import { bench, lamp } from './kit';
 // Heights of the flat layers. Kept well apart so they never flicker when seen from far away.
 const PATCH_TOP = 0.015;
 const STREET_TOP = 0.04;
-const PLAZA_TOP = 0.055;
+const PLAZA_TOP = 0.06;
+const KERB = 0.4;
+const KERB_TOP = 0.052;
 
 /** The sea, the island floor and its small scenery, merged into one mesh (one draw call). */
 export function createGround(): Mesh {
@@ -55,8 +57,18 @@ export function createGround(): Mesh {
   // Streets, both directions. The two middle streets run on to the shore.
   for (const line of STREET_LINES) {
     const half = line === 0 ? SPOKE_END + 3 : GRID_HALF;
-    b.add(new BoxGeometry(half * 2, 0.06, STREET_HALF * 2), C.sand, { p: [0, STREET_TOP - 0.03, line] });
-    b.add(new BoxGeometry(STREET_HALF * 2, 0.06, half * 2), C.sand, { p: [line, STREET_TOP - 0.03, 0] });
+    b.add(new BoxGeometry(half * 2, 0.06, STREET_HALF * 2), C.paving, { p: [0, STREET_TOP - 0.03, line] });
+    b.add(new BoxGeometry(STREET_HALF * 2, 0.06, half * 2), C.paving, { p: [line, STREET_TOP - 0.03, 0] });
+  }
+  // A kerb around every block, so streets read as paved streets and not as paths.
+  for (const cx of [-36, -12, 12, 36]) {
+    for (const cz of [-36, -12, 12, 36]) {
+      const e = 9.5 + KERB / 2;
+      b.add(new BoxGeometry(e * 2 + KERB, 0.07, KERB), C.kerb, { p: [cx, KERB_TOP - 0.035, cz + e] });
+      b.add(new BoxGeometry(e * 2 + KERB, 0.07, KERB), C.kerb, { p: [cx, KERB_TOP - 0.035, cz - e] });
+      b.add(new BoxGeometry(KERB, 0.07, e * 2 + KERB), C.kerb, { p: [cx + e, KERB_TOP - 0.035, cz] });
+      b.add(new BoxGeometry(KERB, 0.07, e * 2 + KERB), C.kerb, { p: [cx - e, KERB_TOP - 0.035, cz] });
+    }
   }
   // Trodden ground around the forest camp and the fishing hut.
   for (const place of [PLACES.camp, PLACES.fishing]) {
@@ -66,16 +78,17 @@ export function createGround(): Mesh {
   // Front paths from each door to the street.
   for (const lot of LOTS) {
     b.group({ p: [lot.x, 0, lot.z], r: [0, lot.yaw, 0] }, () => {
-      b.add(new BoxGeometry(1.1, 0.06, 1.7), C.sand, {
+      b.add(new BoxGeometry(1.1, 0.06, 1.7), C.paving, {
         p: [HOUSE_SHAPES[lot.shape].doorX, STREET_TOP - 0.03, HOUSE_HALF_DEPTH + 1.15],
       });
     });
   }
 
   // Plaza: paved disc, a planter for the big tree, benches on the two free corners.
-  b.add(new CylinderGeometry(PLAZA_RADIUS, PLAZA_RADIUS, 0.06, 40), C.stone, { p: [0, PLAZA_TOP - 0.03, 0] });
-  b.add(new CylinderGeometry(PLAZA_RADIUS - 2.2, PLAZA_RADIUS - 2.2, 0.06, 40), C.sand, { p: [0, PLAZA_TOP - 0.015, 0] });
-  b.add(new CylinderGeometry(PLANTER_RADIUS, PLANTER_RADIUS + 0.12, 0.5, 12), C.stoneDark, { p: [0, 0.25, 0] });
+  b.add(new CylinderGeometry(PLAZA_RADIUS, PLAZA_RADIUS, 0.06, 40), C.kerb, { p: [0, PLAZA_TOP - 0.03, 0] });
+  b.add(new CylinderGeometry(PLAZA_RADIUS - 0.6, PLAZA_RADIUS - 0.6, 0.06, 40), C.paving, { p: [0, PLAZA_TOP - 0.015, 0] });
+  b.add(new CylinderGeometry(3.4, 3.4, 0.06, 24), C.tile, { p: [0, PLAZA_TOP - 0.005, 0] });
+  b.add(new CylinderGeometry(PLANTER_RADIUS + 0.05, PLANTER_RADIUS + 0.05, 0.5, 12), C.white, { p: [0, 0.25, 0] });
   b.add(new CylinderGeometry(PLANTER_RADIUS - 0.14, PLANTER_RADIUS - 0.14, 0.1, 12), C.grass, { p: [0, 0.47, 0] });
   for (const angle of [(3 * Math.PI) / 4, (7 * Math.PI) / 4]) {
     bench(b, Math.sin(angle) * 6.6, Math.cos(angle) * 6.6, PLAZA_TOP, angle + Math.PI);

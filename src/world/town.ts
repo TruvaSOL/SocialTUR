@@ -1,10 +1,8 @@
 import {
   BoxGeometry,
   type BufferGeometry,
-  DynamicDrawUsage,
   Euler,
   Group,
-  IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
   Mesh,
@@ -13,11 +11,11 @@ import {
 } from 'three';
 import { Builder, flatMaterial } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
-import { LOTS, SEA_LEVEL, TREES, type Lot, lotToWorld } from './district';
+import { LOTS, PALMS, SEA_LEVEL, TREES, type Lot } from './district';
 import { HOUSE_SHAPES, HOUSE_STYLES } from './house';
 import { FERRY_BERTH, buildFerry, buildLandmarks } from './landmarks';
 import { PROJECTS } from './projects';
-import { buildTreeGeometry } from './tree';
+import { buildPalmGeometry, buildTreeGeometry } from './tree';
 
 export interface Town {
   group: Group;
@@ -33,8 +31,6 @@ export interface Town {
   setStage(stage: number): void;
   update(time: number): void;
 }
-
-const PUFFS_PER_HOUSE = 3;
 
 /** Splits the district in four so parts behind the camera are not drawn. */
 const quadrant = (x: number, z: number) => (x >= 0 ? 1 : 0) + (z >= 0 ? 2 : 0);
@@ -82,7 +78,7 @@ function buildPlotMarker(): BufferGeometry {
 }
 
 /**
- * Everything built on the island: houses, plot markers, trees, chimney smoke,
+ * Everything built on the island: houses, plot markers, trees and palms,
  * the fixed landmarks, the ferry, and the shared building projects.
  * Every repeated model is drawn in batches.
  */
@@ -118,6 +114,8 @@ export function createTown(): Town {
     if (items.length) group.add(instanced(treeGeometry, items));
   }
 
+  group.add(instanced(buildPalmGeometry(), PALMS));
+
   // Fixed landmarks in one mesh; the ferry separately so it can bob at its berth.
   const landmarks = new Mesh(buildLandmarks(), flatMaterial);
   landmarks.castShadow = true;
@@ -138,18 +136,6 @@ export function createTown(): Town {
   });
   const maxStage = Math.max(...PROJECTS.map((p) => p.lastStage));
 
-  // Chimney smoke: a few puffs per built house, all in one batch. No transparency.
-  const puffGeometry = new Builder().add(new IcosahedronGeometry(0.2, 0), C.cloud).geometry();
-  const puffs = new InstancedMesh(puffGeometry, flatMaterial, LOTS.length * PUFFS_PER_HOUSE);
-  puffs.instanceMatrix.setUsage(DynamicDrawUsage);
-  puffs.frustumCulled = false;
-  group.add(puffs);
-  const smoke = order.map((lot) => {
-    const at = HOUSE_SHAPES[lot.shape].smoke;
-    return { ...lotToWorld(lot, at.x, at.z), y: at.y };
-  });
-  const array = puffs.instanceMatrix.array;
-
   let houses = 0;
   const town: Town = {
     group,
@@ -162,7 +148,6 @@ export function createTown(): Town {
       houses = Math.max(0, Math.min(LOTS.length, Math.round(count)));
       for (const batch of houseBatches) batch.mesh.count = batch.ranks.filter((r) => r < houses).length;
       markers.count = LOTS.length - houses;
-      puffs.count = houses * PUFFS_PER_HOUSE;
     },
     setStage(stage) {
       for (const entry of projects) {
@@ -174,26 +159,6 @@ export function createTown(): Town {
       }
     },
     update(time) {
-      let o = 0;
-      for (let h = 0; h < houses; h++) {
-        const at = smoke[h];
-        for (let i = 0; i < PUFFS_PER_HOUSE; i++) {
-          const life = (time * 0.22 + i / PUFFS_PER_HOUSE + h * 0.37) % 1;
-          const s = Math.sin(life * Math.PI) * (0.7 + life * 0.9);
-          // A scale-and-move matrix written directly; the wind drifts the same way for every house.
-          array.fill(0, o, o + 16);
-          array[o] = s;
-          array[o + 5] = s;
-          array[o + 10] = s;
-          array[o + 12] = at.x + life * 0.7 + Math.sin(life * 6 + i) * 0.08;
-          array[o + 13] = at.y + life * 1.9;
-          array[o + 14] = at.z + life * 0.25;
-          array[o + 15] = 1;
-          o += 16;
-        }
-      }
-      puffs.instanceMatrix.needsUpdate = true;
-
       // The ferry rides the swell at its berth.
       ferry.position.y = SEA_LEVEL + Math.sin(time * 1.1) * 0.07;
       ferry.rotation.z = Math.sin(time * 0.8) * 0.02;

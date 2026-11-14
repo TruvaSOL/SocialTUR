@@ -1,4 +1,4 @@
-import { type BufferGeometry, CylinderGeometry, IcosahedronGeometry } from 'three';
+import { type BufferGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry } from 'three';
 import { Builder } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
 
@@ -23,5 +23,35 @@ export function buildTreeGeometry(): BufferGeometry {
     [-1.3, 0.85, 0.75],
   ];
   fruit.forEach(([x, y, z]) => b.add(new IcosahedronGeometry(0.13, 0), C.fruit, { p: [x, y + 1.9, z] }));
+  return b.geometry();
+}
+
+/** One palm as a single geometry: a slightly curved trunk, a ring of drooping fronds, a few coconuts. */
+export function buildPalmGeometry(): BufferGeometry {
+  const b = new Builder();
+  // Trunk: four short pieces, each leaning a little further, so it reads as a gentle curve.
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < 4; i++) {
+    const lean = 0.05 + i * 0.05;
+    const r = 0.2 - i * 0.025;
+    b.add(new CylinderGeometry(r - 0.02, r, 1.4, 6, 1, true), i % 2 ? C.trunk : C.woodDark, { p: [x + Math.sin(lean) * 0.65, y + 0.65, 0], r: [0, 0, -lean] });
+    x += Math.sin(lean) * 1.3;
+    y += Math.cos(lean) * 1.3;
+  }
+  const fronds = 8;
+  for (let i = 0; i < fronds; i++) {
+    const droop = 1.75 + (i % 2) * 0.25;
+    b.group({ p: [x, y, 0], r: [0, (i / fronds) * Math.PI * 2, 0] }, () => {
+      b.add(new ConeGeometry(0.42, 2.5, 4), i % 2 ? C.palm : C.palmDark, {
+        p: [0, Math.cos(droop) * 1.15 + 0.1, Math.sin(droop) * 1.15],
+        r: [droop, 0, 0],
+        s: [1, 1, 0.22],
+      });
+    });
+  }
+  b.add(new IcosahedronGeometry(0.3, 0), C.palmDark, { p: [x, y + 0.05, 0] });
+  b.add(new IcosahedronGeometry(0.13, 0), C.woodDark, { p: [x + 0.2, y - 0.2, 0.12] });
+  b.add(new IcosahedronGeometry(0.13, 0), C.woodDark, { p: [x - 0.15, y - 0.22, -0.14] });
   return b.geometry();
 }

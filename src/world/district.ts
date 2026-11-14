@@ -173,7 +173,7 @@ function makeTrees(): TreeSpot[] {
   // trees stand close together there and thin out elsewhere.
   for (let k = 0, placed = 0; k < 1500 && placed < 78; k++) {
     const angle = rnd() * Math.PI * 2;
-    const dist = Math.sqrt(rnd()) * (GRASS_RADIUS - 3);
+    const dist = Math.sqrt(rnd()) * (GRASS_RADIUS - 5.5);
     const x = Math.cos(angle) * dist;
     const z = Math.sin(angle) * dist;
     if (Math.abs(x) < GRID_HALF + 2 && Math.abs(z) < GRID_HALF + 2) continue;
@@ -185,6 +185,39 @@ function makeTrees(): TreeSpot[] {
 }
 
 export const TREES: TreeSpot[] = makeTrees();
+
+function makePalms(): TreeSpot[] {
+  const rnd = seededRandom(909);
+  const palms: TreeSpot[] = [];
+  const add = (x: number, z: number) => palms.push({ x, y: 0, z, scale: 0.85 + rnd() * 0.35, yaw: rnd() * Math.PI * 2 });
+  const nearPlace = (x: number, z: number) =>
+    [PLACES.ferry, PLACES.fishing, PLACES.camp].some((p) => Math.hypot(x - p.x, z - p.z) < 10) ||
+    (Math.abs(x - PLACES.harbor.x) < 18 && z > 56);
+
+  // An avenue of palms along the two main streets.
+  for (const along of [8, 16, 32, 40, 57]) {
+    for (const sign of [1, -1]) {
+      for (const side of [1, -1]) {
+        const a = sign * along;
+        const off = side * (STREET_HALF + 0.9);
+        if (!nearPlace(a, off)) add(a, off);
+        if (!nearPlace(off, a)) add(off, a);
+      }
+    }
+  }
+  // A promenade of palms where the grass meets the beach.
+  const ring = GRASS_RADIUS - 2.2;
+  for (let k = 0; k < 44; k++) {
+    const angle = (k / 44) * Math.PI * 2 + 0.07;
+    const x = Math.cos(angle) * ring;
+    const z = Math.sin(angle) * ring;
+    if (Math.abs(x) < 6 || Math.abs(z) < 6 || nearPlace(x, z)) continue;
+    add(x, z);
+  }
+  return palms;
+}
+
+export const PALMS: TreeSpot[] = makePalms();
 
 const LAST = STREET_LINES.length - 1;
 const coordinate = (k: number) => (k < 0 ? -SPOKE_END : k > LAST ? SPOKE_END : STREET_LINES[k]);

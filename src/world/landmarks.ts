@@ -1,8 +1,8 @@
-import { BoxGeometry, type BufferGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry } from 'three';
+import { BoxGeometry, type BufferGeometry, ConeGeometry, CylinderGeometry } from 'three';
 import { Builder } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
 import { PLACES, SEA_LEVEL } from './district';
-import { barrel, bench, bollard, crate, dock, lamp, logPile, post, ridgeRoofX, slab } from './kit';
+import { bench, bollard, crate, dock, lamp, logPile, post, ridgeRoofX, slab } from './kit';
 
 const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
 
@@ -11,7 +11,7 @@ export const FERRY_BERTH = { x: PLACES.ferry.x + 13, z: 4.9, yaw: Math.PI / 2 } 
 
 /**
  * The places that are there from day one, merged into one geometry:
- * the ferry pier (where new residents arrive), the forest camp (lumberjacks)
+ * the concrete ferry pier (where new residents arrive), the forest camp (lumberjacks)
  * and the fishing hut with its jetty (fishers).
  */
 export function buildLandmarks(): BufferGeometry {
@@ -21,26 +21,22 @@ export function buildLandmarks(): BufferGeometry {
   // ---- Ferry pier: east shore, running out along +x.
   b.group({ p: [PLACES.ferry.x, 0, PLACES.ferry.z] }, () => {
     dock(b, 2.5, 22, -2.2, 2.2, deckTop);
-    slab(b, -1, 2.6, -2.4, 2.4, -1.2, deckTop, C.stone);
+    slab(b, -1, 2.6, -2.4, 2.4, -1.2, deckTop, C.concrete);
     // Welcome gate at the landward end.
     for (const z of [-2.5, 2.5]) {
-      b.add(box(0.26, 3.8, 0.26), C.wood, { p: [0.4, 1.9, z] });
-      b.add(new IcosahedronGeometry(0.2, 0), C.brass, { p: [0.4, 3.0, z * 0.82] });
+      b.add(box(0.5, 3.8, 0.5), C.white, { p: [0.4, 1.9, z] });
     }
-    b.add(box(0.3, 0.3, 5.6), C.woodDark, { p: [0.4, 3.8, 0] });
-    b.add(box(0.14, 0.8, 3.0), C.clothCream, { p: [0.4, 3.25, 0] });
-    b.add(box(0.16, 0.16, 3.0), C.clothTeal, { p: [0.42, 3.6, 0] });
+    b.add(box(0.6, 0.4, 5.6), C.aegean, { p: [0.4, 3.9, 0] });
+    b.add(box(0.14, 0.7, 2.6), C.white, { p: [0.4, 3.2, 0] });
     // Waiting shelter with a bench, half way along.
     b.group({ p: [12, deckTop, -1.3] }, () => {
-      for (const x of [-1.5, 1.5]) for (const z of [-0.6, 0.6]) b.add(box(0.12, 2.3, 0.12), C.wood, { p: [x, 1.15, z] });
-      b.add(box(3.6, 0.12, 1.9), C.roofTeal, { p: [0, 2.4, 0], r: [0.12, 0, 0] });
-      b.add(box(3.0, 1.2, 0.08), C.wallWarm, { p: [0, 1.0, -0.6] });
+      for (const x of [-1.5, 1.5]) for (const z of [-0.6, 0.6]) b.add(box(0.08, 2.3, 0.08), C.metalDark, { p: [x, 1.15, z] });
+      b.add(box(3.6, 0.1, 1.9), C.white, { p: [0, 2.35, 0] });
+      b.add(box(3.0, 1.5, 0.05), C.glass, { p: [0, 1.2, -0.6] });
       bench(b, 0, -0.15, 0, 0);
     });
     for (const x of [6, 17]) lamp(b, x, -1.9, deckTop);
     for (const x of [9, 15, 21]) bollard(b, x, 1.9, deckTop);
-    crate(b, 19.5, -1.3, 0.8, deckTop, 0.3);
-    barrel(b, 20.6, -1.2, deckTop);
   });
 
   // ---- Forest camp: west shore road. An open shed, a saw horse, logs and stumps.
@@ -67,11 +63,12 @@ export function buildLandmarks(): BufferGeometry {
 
   // ---- Fishing hut: north shore. A plank hut, a drying rack, a jetty with a rowing boat.
   b.group({ p: [PLACES.fishing.x, 0, PLACES.fishing.z] }, () => {
-    b.add(box(3.2, 2.2, 2.6), C.wood, { p: [0, 1.3, 0] });
-    for (const x of [-1.6, -0.55, 0.55, 1.6]) b.add(box(0.06, 2.2, 2.66), C.woodDark, { p: [x, 1.3, 0] });
-    slab(b, -1.8, 1.8, -1.5, 1.5, 0, 0.2, C.stoneDark);
-    b.group({ p: [0, 2.4, 0] }, () => ridgeRoofX(b, 3.2, 2.6, 1.0, C.roofSlate, C.roofSlateDark));
-    b.add(box(0.8, 1.6, 0.1), C.door, { p: [-0.6, 1.0, 1.32] });
+    b.add(box(3.2, 2.4, 2.6), C.white, { p: [0, 1.4, 0] });
+    b.add(box(3.24, 0.5, 2.64), C.aegean, { p: [0, 0.45, 0] });
+    slab(b, -1.8, 1.8, -1.5, 1.5, 0, 0.2, C.concrete);
+    b.add(box(3.5, 0.14, 2.9), C.white, { p: [0, 2.67, 0] });
+    b.add(box(3.0, 0.06, 2.4), C.terracotta, { p: [0, 2.76, 0] });
+    b.add(box(0.8, 1.6, 0.1), C.aegean, { p: [-0.6, 1.0, 1.32] });
     b.add(box(0.7, 0.6, 0.08), C.glass, { p: [0.7, 1.5, 1.32] });
     // Drying rack with the day's catch.
     b.group({ p: [3.6, 0, 0.6] }, () => {
@@ -79,7 +76,6 @@ export function buildLandmarks(): BufferGeometry {
       b.add(box(0.08, 0.08, 2.3), C.wood, { p: [0, 1.7, 0] });
       for (const z of [-0.6, -0.1, 0.4, 0.8]) b.add(box(0.06, 0.5, 0.2), C.roofSlate, { p: [0, 1.38, z], r: [0, 0, 0.1] });
     });
-    barrel(b, -2.4, 1.2);
     crate(b, -2.6, 0.1, 0.7, 0, 0.2);
     // Jetty out over the water (the sea is towards -z here).
     b.group({ r: [0, Math.PI, 0] }, () => {
