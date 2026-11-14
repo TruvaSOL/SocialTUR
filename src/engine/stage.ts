@@ -75,8 +75,9 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
       // Frame the whole patch whether the phone is upright or sideways.
       const vFov = (camera.fov * Math.PI) / 180;
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-      // Upright screens are limited by width, where the whole patch must fit edge to edge.
-      const dist = hFov < vFov ? (FIT_RADIUS + 2) / Math.sin(hFov / 2) : FIT_RADIUS / Math.sin(vFov / 2);
+      // Width must fit the whole patch edge to edge; height only needs the tighter radius.
+      // Taking the larger distance also covers near-square screens.
+      const dist = Math.max((FIT_RADIUS + 2) / Math.sin(hFov / 2), FIT_RADIUS / Math.sin(vFov / 2));
       camera.position.copy(FOCUS).addScaledVector(VIEW_DIR, dist);
     }
   };
