@@ -4,6 +4,8 @@ A browser-based social city game: one shared low-poly 3D city where players work
 
 Status: **Stage 2 — performance gate.** A full district (52 houses, 114 trees, plaza), a free camera, an eye-level view and up to 200 walking characters.
 
+Live build: https://socialtur.pages.dev (Cloudflare Pages, deploys automatically from `main`).
+
 ## Run
 
 ```bash
