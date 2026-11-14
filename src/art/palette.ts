@@ -1,0 +1,46 @@
+﻿// The fixed palette. Every surface in the game takes its colour from here;
+// models never bring their own textures or colours.
+export const PALETTE = {
+  // ground
+  grass: 0x8fce62,
+  grassLight: 0xa9d970,
+  grassDark: 0x74b653,
+  earth: 0xcb9b6c,
+  earthDark: 0xa67850,
+  sand: 0xf2deae,
+  stone: 0xdcd5c8,
+  stoneDark: 0xbab2a5,
+  // buildings
+  wall: 0xfff3dc,
+  roof: 0xe9745b,
+  roofDark: 0xcd5b47,
+  wood: 0xba7b4f,
+  woodDark: 0x8c5a3c,
+  door: 0x3f9a93,
+  glass: 0xbde7f5,
+  brass: 0xffd166,
+  // nature
+  leaf: 0x66ba69,
+  leafLight: 0x8ed37b,
+  leafDark: 0x4b9e60,
+  trunk: 0x9c6b47,
+  fruit: 0xf0604d,
+  flowerPink: 0xf7a1bd,
+  flowerYellow: 0xffd766,
+  cloud: 0xffffff,
+  // characters
+  skinLight: 0xffd9b8,
+  skinTan: 0xe8b088,
+  skinBrown: 0xb9805a,
+  hairBrown: 0x5b3a29,
+  hairBlack: 0x2f2a2a,
+  hairBlond: 0xe9c46a,
+  clothMustard: 0xf4b942,
+  clothNavy: 0x3d5a80,
+  clothRed: 0xe76f51,
+  clothTeal: 0x2a9d8f,
+  shoe: 0x4a3b35,
+  ink: 0x3a2a26,
+  blush: 0xf59a9a,
+  mouth: 0x8a3f36,
+} as const;
