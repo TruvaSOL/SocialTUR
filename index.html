@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#8fd0f2" />
+    <title></title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="ui">
+      <div class="chip title">
+        <strong id="game-name"></strong>
+        <span data-i18n="stage.label"></span>
+      </div>
+      <div class="buttons">
+        <button id="btn-lang" class="chip" type="button"></button>
+        <button id="btn-stats" class="chip" type="button" data-i18n="stats.button"></button>
+      </div>
+      <pre id="stats" class="chip" hidden></pre>
+      <div class="chip hint" data-i18n="hint.camera"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
