@@ -1,0 +1,13 @@
+{
+  "stage.label": "Aşama 1 · Stil kilidi",
+  "hint.camera": "Sürükle: döndür · İki parmak: kaydır ve yakınlaş",
+  "stats.button": "Ölçüm",
+  "stats.fps": "Kare hızı",
+  "stats.calls": "Çizim çağrısı",
+  "stats.triangles": "Üçgen",
+  "stats.memory": "Bellek",
+  "stats.gpu": "Model / doku",
+  "stats.download": "İndirilen",
+  "stats.quality": "Kalite",
+  "stats.unknown": "bilinmiyor"
+}

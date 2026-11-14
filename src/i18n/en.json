@@ -1,0 +1,13 @@
+{
+  "stage.label": "Stage 1 · Style lock",
+  "hint.camera": "Drag: rotate · Two fingers: pan and zoom",
+  "stats.button": "Stats",
+  "stats.fps": "Frame rate",
+  "stats.calls": "Draw calls",
+  "stats.triangles": "Triangles",
+  "stats.memory": "Memory",
+  "stats.gpu": "Models / textures",
+  "stats.download": "Downloaded",
+  "stats.quality": "Quality",
+  "stats.unknown": "unknown"
+}
