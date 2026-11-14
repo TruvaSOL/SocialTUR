@@ -1,4 +1,4 @@
-﻿import { DirectionalLight, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
+import { DirectionalLight, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /** 'overview' is the free camera over the district; 'eye' follows a character at head height. */
@@ -32,6 +32,8 @@ const OVERVIEW_FOV = 32;
 const EYE_FOV = 55;
 
 export function createStage(canvas: HTMLCanvasElement): Stage {
+  // Fail with a clear message (shown by the on-screen crash box) when 3D drawing is unavailable.
+  if (!document.createElement('canvas').getContext('webgl2')) throw new Error('WebGL2 is not available in this browser');
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   const basePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(basePixelRatio);

@@ -114,3 +114,17 @@ body {
 .hint.gone {
   opacity: 0;
 }
+
+#crash {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 20px;
+  overflow: auto;
+  background: #fff6ea;
+  color: #7a2e1f;
+  font: 13px/1.5 ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -25,6 +25,25 @@
       <pre id="stats" class="chip" hidden></pre>
       <div class="chip hint" data-i18n="hint.camera"></div>
     </div>
+    <pre id="crash" hidden></pre>
+    <script>
+      // If the game fails to start, say so on screen: phones have no console to look at.
+      // This runs before the game (and its translations) load, so the heading is written in both languages here.
+      (function () {
+        var box = document.getElementById('crash');
+        function show(detail) {
+          box.hidden = false;
+          if (!box.textContent) box.textContent = 'Oyun açılamadı / The game could not start\n\n' + navigator.userAgent + '\n';
+          box.textContent += '\n' + detail;
+        }
+        window.addEventListener('error', function (e) {
+          show(e.message ? e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')' : 'A file failed to load: ' + ((e.target && (e.target.src || e.target.href)) || '?'));
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          show(String((e.reason && e.reason.message) || e.reason));
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
