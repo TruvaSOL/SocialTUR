@@ -19,6 +19,8 @@ import { buildPalmGeometry, buildTreeGeometry } from './tree';
 
 export interface Town {
   group: Group;
+  /** The ferry. The arrival sequence moves it; the town only makes it bob. */
+  readonly ferry: Mesh;
   /** How many plots there are in total. */
   readonly lotCount: number;
   /** How many houses stand right now. */
@@ -139,6 +141,7 @@ export function createTown(): Town {
   let houses = 0;
   const town: Town = {
     group,
+    ferry,
     lotCount: LOTS.length,
     get houses() {
       return houses;

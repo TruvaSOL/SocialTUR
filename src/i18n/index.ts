@@ -24,9 +24,14 @@ function initialLocale(): Locale {
 let current: Locale = initialLocale();
 const listeners = new Set<() => void>();
 
-export function t(key: Key): string {
-  return tables[current][key] ?? tables[GAME.defaultLocale][key] ?? key;
+/** Looks up a text. `{name}` placeholders are filled from `params`. */
+export function t(key: Key, params?: Record<string, string | number>): string {
+  let text = tables[current][key] ?? tables[GAME.defaultLocale][key] ?? key;
+  if (params) for (const name of Object.keys(params)) text = text.split('{' + name + '}').join(String(params[name]));
+  return text;
 }
+
+export type TextKey = Key;
 
 export function getLocale(): Locale {
   return current;

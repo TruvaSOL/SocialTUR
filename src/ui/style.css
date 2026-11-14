@@ -130,3 +130,183 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Arrival announcement, top centre. */
+.banner {
+  inset: 68px auto auto 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 20px;
+  text-align: center;
+  max-width: calc(100% - 32px);
+  animation: banner-in 0.5s ease-out;
+}
+
+.banner strong {
+  font-size: 17px;
+}
+
+.banner span {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+}
+
+/* Bottom sheet: welcome, birth year, character editor. */
+.sheet {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0 auto;
+  max-width: 520px;
+  max-height: 56%;
+  overflow-y: auto;
+  pointer-events: auto;
+  background: rgba(255, 251, 243, 0.96);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -6px 30px rgba(74, 59, 53, 0.18);
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet[hidden] {
+  display: none;
+}
+
+.sheet h1,
+.sheet h2,
+.sheet p {
+  margin: 0;
+}
+
+.sheet h1 {
+  font-size: 26px;
+}
+
+.sheet h2 {
+  font-size: 19px;
+}
+
+.sheet p {
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+.sheet .error {
+  color: #b23b2a;
+  opacity: 1;
+}
+
+.sheet button,
+.sheet select,
+.sheet input {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  border-radius: 14px;
+  min-height: 46px;
+  padding: 0 16px;
+  background: #efe7d8;
+}
+
+.sheet input,
+.sheet select {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px; /* keeps phones from zooming the page on focus */
+}
+
+.sheet button {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.sheet button.primary {
+  background: #3d82c4;
+  color: #fff;
+}
+
+.sheet button:active {
+  transform: scale(0.97);
+}
+
+.sheet .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.sheet .rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sheet .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sheet .row-label {
+  flex: 0 0 76px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.sheet .options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sheet .swatch {
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(74, 59, 53, 0.18);
+}
+
+.sheet .choice {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.sheet [aria-pressed='true'] {
+  outline: 3px solid #3d82c4;
+  outline-offset: 2px;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sheet-actions .primary {
+  flex: 1;
+}
+
+/* While the sheet is open the play controls step aside. */
+#ui.onboarding .actions,
+#ui.onboarding .hint {
+  display: none;
+}

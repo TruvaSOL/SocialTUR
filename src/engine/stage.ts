@@ -15,8 +15,12 @@ export interface Stage {
   readonly mode: ViewMode;
   /** Switches the view. For 'eye', `focus` is the head to follow and `yaw` the way it faces. */
   setMode(mode: ViewMode, focus?: Vector3, yaw?: number): void;
+  /** In eye view: puts the camera distance behind a head that faces yaw (add pi to see the face). */
+  lookFrom(focus: Vector3, yaw: number, distance?: number): void;
   /** Call every frame with the followed character's head position. Does nothing in overview. */
   follow(focus: Vector3): void;
+  /** Moves the picture up by this fraction of the screen height, to keep the subject clear of a bottom sheet. 0 resets. */
+  setLift(fraction: number): void;
   /** Call after buildings appear or change: the shadow is drawn once and must be redrawn. */
   refreshShadows(): void;
   /** Turns the sun's shadow on or off. */
@@ -102,11 +106,14 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     t.y = Math.min(6, Math.max(0, t.y));
   });
 
+  let lift = 0;
   const resize = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    if (lift) camera.setViewOffset(w, h, 0, lift * h, w, h);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     if (!touched && mode === 'overview') {
       // Frame the whole district whether the phone is upright or sideways.
@@ -148,12 +155,23 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
       }
       controls.update();
     },
+    lookFrom(focus, yaw, distance = 3.6) {
+      if (mode !== 'eye') return;
+      controls.target.copy(focus);
+      camera.position.set(focus.x - Math.sin(yaw) * distance, focus.y + 0.25 * distance, focus.z - Math.cos(yaw) * distance);
+      controls.update();
+    },
     follow(focus) {
       if (mode !== 'eye') return;
       // Carry the camera along with the character, keeping whatever angle the player chose.
       delta.subVectors(focus, controls.target);
       camera.position.add(delta);
       controls.target.copy(focus);
+    },
+    setLift(fraction) {
+      if (fraction === lift) return;
+      lift = fraction;
+      resize();
     },
     refreshShadows() {
       renderer.shadowMap.needsUpdate = true;

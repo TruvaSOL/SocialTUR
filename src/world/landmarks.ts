@@ -7,7 +7,10 @@ import { bench, bollard, crate, dock, lamp, logPile, post, ridgeRoofX, slab } fr
 const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
 
 /** Where the ferry is moored, and which way it points. */
-export const FERRY_BERTH = { x: PLACES.ferry.x + 13, z: 4.9, yaw: Math.PI / 2 } as const;
+/** Bow towards the island, so the ferry simply sails straight in from the open sea. */
+export const FERRY_BERTH = { x: PLACES.ferry.x + 13, z: 4.9, yaw: -Math.PI / 2 } as const;
+/** Where a passenger stands on the fore deck, in the ferry's own coordinates. */
+export const FERRY_DECK = { y: 1.07, z: 3.0 } as const;
 
 /**
  * The places that are there from day one, merged into one geometry:

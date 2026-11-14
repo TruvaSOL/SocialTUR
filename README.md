@@ -2,7 +2,7 @@
 
 A browser-based social city game: one shared low-poly 3D city where players work, earn a home, decorate it, visit each other and build shared landmarks together.
 
-Status: **Stage 2 — performance gate.** A modern coastal town on an island: 52 plots that fill with three house models as the town grows, four staged shared buildings (harbour, town hall, cafe, park), a ferry pier, forest camp and fishing hut, a free camera, an eye-level view and up to 200 walking characters.
+Status: **Stage 3 — arrival (in progress).** Welcome, age gate, character editor and the ferry arrival work in guest mode; accounts wait for the Supabase project (schema drafted in `supabase/migrations`). A modern coastal town on an island: 52 plots that fill with three house models as the town grows, four staged shared buildings (harbour, town hall, cafe, park), a ferry pier, forest camp and fishing hut, a free camera, an eye-level view and up to 200 walking characters.
 
 Live build: https://socialtur.pages.dev (Cloudflare Pages, deploys automatically from `main`).
 

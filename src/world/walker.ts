@@ -90,6 +90,25 @@ export class Walker {
     this.targetZ = b.z + (dx - dz) * this.lane;
   }
 
+  /** Stops right now and waves, as when greeting a newcomer. */
+  greet(): void {
+    this.untilStop = 0;
+    this.stopClock = 0;
+  }
+
+  /** Puts the walker at a point near crossing (i, j) and lets it stroll on from there. */
+  placeNear(x: number, z: number, i: number, j: number): void {
+    this.x = x;
+    this.z = z;
+    this.fromI = i;
+    this.fromJ = j;
+    this.pickNext(-1, -1);
+    this.walk = 1;
+    this.wave = 0;
+    this.stopClock = 0;
+    this.untilStop = 20 + this.rnd() * 30;
+  }
+
   update(dt: number): void {
     this.time += dt;
 

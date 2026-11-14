@@ -156,6 +156,14 @@ export class Crowd {
     this.group.add(this.blobs);
   }
 
+  /** Everyone within adius of a point stops and waves: the town greeting a newcomer. */
+  greetNear(x: number, z: number, radius: number): void {
+    for (let i = 0; i < this.count; i++) {
+      const w = this.walkers[i];
+      if (Math.hypot(w.x - x, w.z - z) < radius) w.greet();
+    }
+  }
+
   /** Moves everyone, then poses and uploads only the characters the camera can see. */
   update(dt: number, camera: Camera, focus: Vector3): void {
     camera.updateMatrixWorld();
