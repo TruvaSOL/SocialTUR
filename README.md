@@ -2,7 +2,24 @@
 
 A browser-based social city game: one shared low-poly 3D city where players work, earn a home, decorate it, visit each other and build shared landmarks together.
 
-Status: **Stage 0 — planning.** No game code yet.
+Status: **Stage 1 — style lock.** One house, one tree, one walking character on a small ground patch.
+
+## Run
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+```bash
+npm run build
+```
+
+`npm run build` type-checks, builds to `dist/` and fails if the output exceeds the 6 MB first-load budget.
+Add `?stats` to the address (or press the Stats button) for the measurement overlay.
 
 ## Documents
 

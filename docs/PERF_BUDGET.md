@@ -49,6 +49,14 @@ Ev içi mobilyalar ve müzik ilk yüklemeye dahil değildir; gerektiğinde iner.
 | Küçük eşya (bank, lamba) | 200 |
 | Mobilya | 400 |
 
+## Ölçümler
+
+| Tarih | Sahne | Çizim çağrısı | Üçgen | Yayın boyutu | Kare hızı |
+|-------|-------|---------------|-------|--------------|-----------|
+| 2026-11-14 | Aşama 1: zemin, ev, ağaç, bir karakter, 4 bulut | 30 | 18.136 | 0,59 MB (sıkıştırılmamış toplam) | ölçülemedi |
+
+Çizim çağrısı ve üçgen sayıları gölge geçişini de içerir. Kare hızı geliştirme ortamında ölçülemedi (önizleme penceresi arka planda çalıştığı için kare üretmiyor); gerçek telefonda ölçülecek.
+
 ## Kurallar
 
 - Tekrarlayan her model tek çizim çağrısında toplanır.
