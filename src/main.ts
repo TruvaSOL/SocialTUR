@@ -46,13 +46,22 @@ document.querySelector('#game-name')!.textContent = GAME.name;
 const langButton = document.querySelector<HTMLButtonElement>('#btn-lang')!;
 const viewButton = document.querySelector<HTMLButtonElement>('#btn-view')!;
 const crowdButton = document.querySelector<HTMLButtonElement>('#btn-crowd')!;
+const housesButton = document.querySelector<HTMLButtonElement>('#btn-houses')!;
+const buildButton = document.querySelector<HTMLButtonElement>('#btn-build')!;
 const CROWD_SIZES = [50, 100, 150, CROWD_MAX];
+// Preview controls until the server drives them: how full the town is, and how far the shared buildings have got.
+const HOUSE_FRACTIONS = [0.1, 0.35, 0.65, 1];
+let houseStep = HOUSE_FRACTIONS.length - 1;
+let buildStage = town.maxStage;
+town.setStage(buildStage);
 
 const showLabels = () => {
   // Each button shows what pressing it would switch to.
   langButton.textContent = getLocale() === 'tr' ? 'EN' : 'TR';
   viewButton.textContent = t(stage.mode === 'eye' ? 'view.overview' : 'view.eye');
   crowdButton.textContent = `${t('crowd.button')}: ${crowd.count}`;
+  housesButton.textContent = `${t('houses.button')}: ${town.houses}/${town.lotCount}`;
+  buildButton.textContent = `${t('build.button')}: ${buildStage}/${town.maxStage}`;
 };
 langButton.addEventListener('click', () => setLocale(getLocale() === 'tr' ? 'en' : 'tr'));
 viewButton.addEventListener('click', () => {
@@ -61,6 +70,18 @@ viewButton.addEventListener('click', () => {
 });
 crowdButton.addEventListener('click', () => {
   crowd.count = CROWD_SIZES[(CROWD_SIZES.indexOf(crowd.count) + 1) % CROWD_SIZES.length];
+  showLabels();
+});
+housesButton.addEventListener('click', () => {
+  houseStep = (houseStep + 1) % HOUSE_FRACTIONS.length;
+  town.setHouses(town.lotCount * HOUSE_FRACTIONS[houseStep]);
+  stage.refreshShadows();
+  showLabels();
+});
+buildButton.addEventListener('click', () => {
+  buildStage = (buildStage + 1) % (town.maxStage + 1);
+  town.setStage(buildStage);
+  stage.refreshShadows();
   showLabels();
 });
 onLocaleChange(showLabels);
@@ -114,5 +135,5 @@ renderer.setAnimationLoop((now) => {
 
 // Development only: lets a test advance the scene by exact amounts of time.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __dev: { step, stage, crowd, quality, renderer } });
+  Object.assign(window, { __dev: { step, stage, crowd, quality, renderer, town } });
 }

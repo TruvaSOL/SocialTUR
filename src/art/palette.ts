@@ -10,6 +10,8 @@ export const PALETTE = {
   sand: 0xf2deae,
   stone: 0xdcd5c8,
   stoneDark: 0xbab2a5,
+  sea: 0x4fb3df,
+  seaShallow: 0x7fd4e6,
   // buildings
   wall: 0xfff3dc,
   roof: 0xe9745b,

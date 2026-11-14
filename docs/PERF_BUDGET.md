@@ -57,6 +57,8 @@ Ev içi mobilyalar ve müzik ilk yüklemeye dahil değildir; gerektiğinde iner.
 | 2026-11-14 | Aşama 2, kuş bakışı, bütün mahalle, 150 kişi | 40 | 232.138 | 0,60 MB | ölçülemedi |
 | 2026-11-14 | Aşama 2, kuş bakışı, bütün mahalle, 200 kişi | 40 | 262.438 | 0,60 MB | ölçülemedi |
 | 2026-11-14 | Aşama 2, göz hizası, sokak boyunca (150 kişiden 50-70'i görünür) | 35-36 | 145.000-166.000 | 0,60 MB | ölçülemedi |
+| 2026-11-14 | Ada sürümü (deniz, 3 ev modeli, liman, belediye, kafe, park hepsi bitmiş), kuş bakışı, 200 kişi | 41 | 274.726 | 0,65 MB | ölçülmedi |
+| 2026-11-14 | Ada sürümü, göz hizası, 200 kişiden 94'ü görünür | 39 | 208.844 | 0,65 MB | ölçülmedi |
 
 Aşama 1 satırı gölge geçişini de içerir. Aşama 2'de gölge yalnızca bir kez çizildiği için satırlar olağan kareyi gösterir; gölgenin çizildiği tek karede sayılar yaklaşık iki katıdır.
 
@@ -66,7 +68,7 @@ Aşama 2 mahallesinin dökümü: zemin ve küçük süsler 24.912 üçgen (tek �
 
 Kuş bakışında üçgen sayısı orta sınıf telefon bütçesinin (150.000) üstünde, güncel telefon bütçesinin (300.000) altında. Telefonda yetmezse sıradaki önlemler: uzak evler ve ağaçlar için sade model, kalabalıkta uzak karakterler için daha sade model.
 
-**İlk telefon denemesi (2026-11-14):** Samsung Galaxy Z Fold 7, yayın adresi, en yüksek kalite sabit (`?quality=1`). Sahibinin değerlendirmesi: "gayet iyi gözüküyor". Kare hızı sayıları henüz bildirilmedi. Bu telefon en üst sınıf bir cihaz; orta sınıf telefon tabanı (karar #4) henüz hiçbir cihazda denenmedi.
+**İlk telefon denemesi (2026-11-14):** Samsung Galaxy Z Fold 7, yayın adresi, en yüksek kalite sabit (`?quality=1`). Sahibinin değerlendirmesi: "gayet iyi gözüküyor", kare hızı yaklaşık 100. Bu telefon en üst sınıf bir cihaz; orta sınıf telefon tabanı (karar #4) henüz hiçbir cihazda denenmedi.
 
 Telefonda ölçüm için adres seçenekleri: `?stats` ölçüm katmanını açar; `?quality=1` (1-6) otomatik kaliteyi durdurup tek bir kalite basamağını sabitler, böylece ham kare hızı okunur.
 

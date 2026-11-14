@@ -75,7 +75,9 @@ body {
   inset: auto 0 58px 0;
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
+  padding: 0 12px;
   pointer-events: auto;
 }
 

@@ -17,6 +17,8 @@ export interface Stage {
   setMode(mode: ViewMode, focus?: Vector3, yaw?: number): void;
   /** Call every frame with the followed character's head position. Does nothing in overview. */
   follow(focus: Vector3): void;
+  /** Call after buildings appear or change: the shadow is drawn once and must be redrawn. */
+  refreshShadows(): void;
   /** Turns the sun's shadow on or off. */
   setShadows(on: boolean): void;
 }
@@ -24,10 +26,10 @@ export interface Stage {
 const VIEW_DIR = new Vector3(0.6, 0.5, 0.78).normalize();
 const SUN_DIR = new Vector3(7, 12, 6).normalize();
 /** Radius that must fit the screen's height, and its width, when the district is first shown. */
-const FIT_HEIGHT = 60;
-const FIT_WIDTH = 80;
+const FIT_HEIGHT = 72;
+const FIT_WIDTH = 98;
 /** How far from the centre the camera target may be dragged. */
-const TARGET_LIMIT = 62;
+const TARGET_LIMIT = 80;
 const OVERVIEW_FOV = 32;
 const EYE_FOV = 55;
 
@@ -52,12 +54,12 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   sun.position.copy(SUN_DIR).multiplyScalar(160);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -82;
-  sun.shadow.camera.right = 82;
-  sun.shadow.camera.top = 82;
-  sun.shadow.camera.bottom = -82;
-  sun.shadow.camera.near = 40;
-  sun.shadow.camera.far = 280;
+  sun.shadow.camera.left = -100;
+  sun.shadow.camera.right = 100;
+  sun.shadow.camera.top = 100;
+  sun.shadow.camera.bottom = -100;
+  sun.shadow.camera.near = 20;
+  sun.shadow.camera.far = 300;
   sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.bias = -0.0008;
   sun.shadow.normalBias = 0.08;
@@ -77,7 +79,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     const eye = mode === 'eye';
     controls.enablePan = !eye;
     controls.minDistance = eye ? 2.2 : 8;
-    controls.maxDistance = eye ? 7 : 320;
+    controls.maxDistance = eye ? 7 : 380;
     controls.minPolarAngle = eye ? 0.95 : 0;
     controls.maxPolarAngle = eye ? 1.56 : 1.45; // never dip below the ground
     controls.autoRotate = !eye && !touched; // gentle turntable until the player touches the screen
@@ -152,6 +154,9 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
       delta.subVectors(focus, controls.target);
       camera.position.add(delta);
       controls.target.copy(focus);
+    },
+    refreshShadows() {
+      renderer.shadowMap.needsUpdate = true;
     },
     setShadows(on) {
       if (sun.castShadow === on) return;

@@ -1,4 +1,4 @@
-import { nodePos } from './district';
+import { isNode, nodePos } from './district';
 import { RIG } from './pose';
 
 const STOP_SECONDS = 3.4;
@@ -20,7 +20,7 @@ export interface WalkerOptions {
 
 /**
  * Stand-in for a real player until the server exists: strolls the street grid,
- * keeps to the right, picks a random turn at each crossing, and now and then stops to wave.
+ * keeps to the right, picks a random turn at each crossing (turning back at the shore), and now and then stops to wave.
  */
 export class Walker {
   x = 0;
@@ -75,7 +75,7 @@ export class Walker {
     for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const i = this.fromI + di;
       const j = this.fromJ + dj;
-      if (i < 0 || j < 0 || i > LAST || j > LAST) continue;
+      if (!isNode(i, j)) continue;
       if (i === prevI && j === prevJ) continue;
       options.push([i, j]);
     }

@@ -13,5 +13,7 @@
   "view.eye": "Eye level",
   "view.overview": "Overview",
   "crowd.button": "Crowd",
+  "houses.button": "Houses",
+  "build.button": "Building",
   "stats.unknown": "unknown"
 }
