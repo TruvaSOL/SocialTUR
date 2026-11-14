@@ -66,6 +66,8 @@ Aşama 2 mahallesinin dökümü: zemin ve küçük süsler 24.912 üçgen (tek �
 
 Kuş bakışında üçgen sayısı orta sınıf telefon bütçesinin (150.000) üstünde, güncel telefon bütçesinin (300.000) altında. Telefonda yetmezse sıradaki önlemler: uzak evler ve ağaçlar için sade model, kalabalıkta uzak karakterler için daha sade model.
 
+**İlk telefon denemesi (2026-11-14):** Samsung Galaxy Z Fold 7, yayın adresi, en yüksek kalite sabit (`?quality=1`). Sahibinin değerlendirmesi: "gayet iyi gözüküyor". Kare hızı sayıları henüz bildirilmedi. Bu telefon en üst sınıf bir cihaz; orta sınıf telefon tabanı (karar #4) henüz hiçbir cihazda denenmedi.
+
 Telefonda ölçüm için adres seçenekleri: `?stats` ölçüm katmanını açar; `?quality=1` (1-6) otomatik kaliteyi durdurup tek bir kalite basamağını sabitler, böylece ham kare hızı okunur.
 
 ## Kurallar
