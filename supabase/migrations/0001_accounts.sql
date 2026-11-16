@@ -1,6 +1,5 @@
 -- Stage 3: accounts, characters, resident numbers.
--- NOT YET RUN against a real project. Written ahead of the Supabase account so it can be
--- reviewed; it will be applied and tested as soon as the project exists.
+-- Applied to the project on 2026-11-16 and tested there (see docs/DECISIONS.md, decision 33).
 --
 -- Rules of this schema:
 --   * The client never writes tables directly. It calls the functions below.

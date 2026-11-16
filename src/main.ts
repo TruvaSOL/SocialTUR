@@ -5,6 +5,7 @@ import { AutoQuality } from './engine/quality';
 import { createStage } from './engine/stage';
 import { StatsOverlay } from './engine/stats';
 import { type Profile, loadProfile, saveProfile } from './game/profile';
+import { arrive, loadOwnProfile, onSignedIn, saveCharacter, sendSignInLink, serverReady, signedInUser } from './game/server';
 import { applyToDom, getLocale, onLocaleChange, setLocale, t } from './i18n';
 import { Onboarding } from './ui/onboarding';
 import { Arrival } from './world/arrival';
@@ -61,6 +62,7 @@ const crowdButton = document.querySelector<HTMLButtonElement>('#btn-crowd')!;
 const housesButton = document.querySelector<HTMLButtonElement>('#btn-houses')!;
 const buildButton = document.querySelector<HTMLButtonElement>('#btn-build')!;
 const characterButton = document.querySelector<HTMLButtonElement>('#btn-character')!;
+const accountButton = document.querySelector<HTMLButtonElement>('#btn-account')!;
 const banner = document.querySelector<HTMLElement>('#banner')!;
 const CROWD_SIZES = [50, 100, 150, CROWD_MAX];
 // Preview controls until the server drives them: how full the town is, and how far the shared buildings have got.
@@ -105,6 +107,46 @@ function showBanner(current: Profile): void {
   window.setTimeout(() => (banner.hidden = true), 9000);
 }
 
+/**
+ * Brings this device and the server into agreement about who the player is.
+ * Signed in with a record on the server: the server's record wins.
+ * Signed in without one: the guest made on this device becomes a resident and gets a number.
+ */
+let syncing = false;
+async function syncAccount(): Promise<void> {
+  if (!serverReady || syncing) return;
+  syncing = true;
+  try {
+    const userId = await signedInUser();
+    accountButton.hidden = userId !== null;
+    if (!userId) return;
+    const own = await loadOwnProfile(userId);
+    if (own) {
+      profile = own;
+      saveProfile(own);
+      player.setLook(own.look);
+      if (mode === 'intro' || mode === 'creating') {
+        // A resident on a new device: no need to make a character again.
+        onboarding.dismiss();
+        arrival.moor();
+        stage.setLift(0);
+        stage.setMode('overview');
+        setMode('playing');
+        showLabels();
+      }
+    } else if (profile && profile.residentNo === null) {
+      const residentNo = await arrive(profile, getLocale());
+      if (residentNo !== null) {
+        profile = { ...profile, residentNo };
+        saveProfile(profile);
+        showBanner(profile);
+      }
+    }
+  } finally {
+    syncing = false;
+  }
+}
+
 function beginFirstVisit(): void {
   setMode('intro');
   arrival.wait();
@@ -118,6 +160,7 @@ function beginFirstVisit(): void {
     stage.setLift(0);
     stage.lookFrom(head, -Math.PI / 2 - 0.9, 9); // off the ferry's side, looking past the character at the island
     showLabels();
+    void syncAccount(); // already signed in: the new character becomes a resident straight away
   });
 }
 
@@ -150,10 +193,22 @@ characterButton.addEventListener('click', () => {
   onboarding.edit(profile.name, profile.look, (name, look) => {
     profile = { ...profile!, name, look };
     saveProfile(profile);
+    if (profile.residentNo !== null) void saveCharacter(name, look);
     stage.setLift(0);
     setMode('playing');
   });
 });
+accountButton.addEventListener('click', () => {
+  if (mode !== 'playing') return;
+  setMode('editing'); // stand still while the sheet is open
+  pose.walk = 0;
+  pose.wave = 0;
+  onboarding.askAccount(sendSignInLink, () => setMode('playing'));
+});
+accountButton.hidden = true;
+onSignedIn(() => void syncAccount());
+void syncAccount();
+
 onLocaleChange(() => {
   showLabels();
   onboarding.refresh();

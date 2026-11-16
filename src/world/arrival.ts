@@ -49,8 +49,9 @@ export class Arrival {
     this.moor();
   }
 
-  /** Ferry at its berth, nobody aboard. */
-  private moor(): void {
+  /** Ferry at its berth, nobody aboard. Also cancels an arrival in progress. */
+  moor(): void {
+    this.phase = 'done';
     this.ferry.position.x = FERRY_BERTH.x;
     this.ferry.position.z = FERRY_BERTH.z;
   }

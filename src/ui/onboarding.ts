@@ -16,7 +16,7 @@ export interface OnboardingHooks {
   onLookChange(look: Look): void;
 }
 
-type Step = 'welcome' | 'age' | 'editor' | null;
+type Step = 'welcome' | 'age' | 'editor' | 'account' | null;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -41,6 +41,11 @@ export class Onboarding {
   /** Set while editing an existing character: called instead of boarding the ferry. */
   private onSave: ((name: string, look: Look) => void) | null = null;
   private onBoard: ((resident: NewResident) => void) | null = null;
+  private sendLink: ((email: string) => Promise<boolean>) | null = null;
+  /** Called when the sheet closes, however it was closed. */
+  private onClose: (() => void) | null = null;
+  private email = '';
+  private linkState: 'idle' | 'sending' | 'sent' | 'failed' = 'idle';
 
   constructor(
     private root: HTMLElement,
@@ -69,6 +74,19 @@ export class Onboarding {
     this.go('editor');
   }
 
+  /** Asks for an e-mail address and sends a sign-in link to it. `onClose` runs when the sheet goes away. */
+  askAccount(sendLink: (email: string) => Promise<boolean>, onClose: () => void): void {
+    this.sendLink = sendLink;
+    this.linkState = 'idle';
+    this.go('account');
+    this.onClose = onClose;
+  }
+
+  /** Closes whatever is showing. */
+  dismiss(): void {
+    if (this.step) this.close();
+  }
+
   /** Redraw in the current language. */
   refresh(): void {
     if (this.step) this.render();
@@ -89,6 +107,9 @@ export class Onboarding {
     this.step = null;
     this.root.hidden = true;
     this.root.replaceChildren();
+    const onClose = this.onClose;
+    this.onClose = null;
+    onClose?.();
   }
 
   private render(): void {
@@ -99,6 +120,48 @@ export class Onboarding {
     if (this.step === 'welcome') this.renderWelcome(sheet);
     else if (this.step === 'age') this.renderAge(sheet);
     else if (this.step === 'editor') this.renderEditor(sheet);
+    else if (this.step === 'account') this.renderAccount(sheet);
+  }
+
+  private renderAccount(sheet: HTMLElement): void {
+    sheet.append(el('h2', '', t('account.title')));
+    const later = el('button', '', t(this.linkState === 'sent' ? 'account.close' : 'account.later'));
+    later.type = 'button';
+    later.addEventListener('click', () => this.close());
+    if (this.linkState === 'sent') {
+      sheet.append(el('p', '', t('account.sent', { email: this.email })), later);
+      return;
+    }
+    sheet.append(el('p', '', t('account.hint')));
+    const input = el('input');
+    input.type = 'email';
+    input.value = this.email;
+    input.placeholder = t('account.emailPlaceholder');
+    input.autocomplete = 'email';
+    input.setAttribute('aria-label', t('account.emailPlaceholder'));
+    sheet.append(input);
+    if (this.linkState === 'failed') sheet.append(el('p', 'error', t('account.failed')));
+    const actions = el('div', 'sheet-actions');
+    const send = el('button', 'primary', t(this.linkState === 'sending' ? 'account.sending' : 'account.send'));
+    send.type = 'button';
+    send.disabled = this.linkState === 'sending';
+    send.addEventListener('click', async () => {
+      const email = input.value.trim();
+      this.email = email;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !this.sendLink) {
+        this.linkState = 'failed';
+        this.render();
+        return;
+      }
+      this.linkState = 'sending';
+      this.render();
+      const ok = await this.sendLink(email);
+      if (this.step !== 'account') return; // closed while waiting
+      this.linkState = ok ? 'sent' : 'failed';
+      this.render();
+    });
+    actions.append(later, send);
+    sheet.append(actions);
   }
 
   private renderWelcome(sheet: HTMLElement): void {

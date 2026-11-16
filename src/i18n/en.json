@@ -46,5 +46,15 @@
   "look.accessory.2": "Glasses",
   "arrival.banner": "{name} has arrived in town!",
   "arrival.resident": "Resident #{no}",
-  "arrival.guest": "Guest · your resident number comes when you link an account"
+  "arrival.guest": "Guest · your resident number comes when you link an account",
+  "account.button": "Link account",
+  "account.title": "Link your account",
+  "account.hint": "Enter your e-mail address and we will send you a one-time sign-in link. No password. Once linked you get your permanent resident number and your character follows you to other devices.",
+  "account.emailPlaceholder": "Your e-mail address",
+  "account.send": "Send link",
+  "account.sending": "Sending…",
+  "account.sent": "We sent a sign-in link to {email}. Open your e-mail and tap the link on this device.",
+  "account.failed": "Could not send. Check the address and try again in a few minutes.",
+  "account.later": "Later",
+  "account.close": "OK"
 }

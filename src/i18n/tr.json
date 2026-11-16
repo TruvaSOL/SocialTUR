@@ -46,5 +46,15 @@
   "look.accessory.2": "Gözlük",
   "arrival.banner": "{name} şehre geldi!",
   "arrival.resident": "Sakin #{no}",
-  "arrival.guest": "Misafir · hesabını bağladığında sakin numaran verilecek"
+  "arrival.guest": "Misafir · hesabını bağladığında sakin numaran verilecek",
+  "account.button": "Hesap bağla",
+  "account.title": "Hesabını bağla",
+  "account.hint": "E-posta adresini yaz, sana tek kullanımlık bir giriş bağlantısı gönderelim. Şifre yok. Hesabın bağlanınca kalıcı sakin numaranı alırsın ve karakterin başka cihazlarda da seninle gelir.",
+  "account.emailPlaceholder": "E-posta adresin",
+  "account.send": "Bağlantı gönder",
+  "account.sending": "Gönderiliyor…",
+  "account.sent": "{email} adresine bir giriş bağlantısı gönderdik. E-postanı aç ve bağlantıya bu cihazdan dokun.",
+  "account.failed": "Gönderilemedi. Adresi kontrol edip birkaç dakika sonra yeniden dene.",
+  "account.later": "Sonra",
+  "account.close": "Tamam"
 }
