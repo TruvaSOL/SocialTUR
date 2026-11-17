@@ -11,7 +11,7 @@ body {
   height: 100%;
   overflow: hidden;
   /* The sky is a CSS gradient behind a transparent canvas: free to draw. */
-  background: linear-gradient(#86cbf0 0%, #c4e6f4 52%, #fdebc8 100%);
+  background: linear-gradient(#5aa7e6 0%, #9dcdf0 38%, #dfeaf0 62%, #e8efe9 100%);
   overscroll-behavior: none;
 }
 
@@ -309,4 +309,201 @@ body {
 #ui.onboarding .actions,
 #ui.onboarding .hint {
   display: none;
+}
+/* Fans counter and the player's seat, top centre. */
+.counter {
+  inset: 12px auto auto 50%;
+  transform: translateX(-50%);
+  font-weight: 800;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.seat-label {
+  inset: 58px auto auto 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seat-label[hidden],
+.actions .chip[hidden] {
+  display: none;
+}
+
+.actions .primary-chip {
+  background: #3d82c4;
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .counter {
+    inset: 70px auto auto 12px;
+    transform: none;
+  }
+  .seat-label {
+    inset: 112px auto auto 12px;
+    transform: none;
+  }
+}
+
+/* Chat: a side panel on wide screens, a bottom sheet on phones. */
+.chat {
+  position: absolute;
+  inset: 70px 12px 70px auto;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  pointer-events: auto;
+  background: rgba(255, 251, 243, 0.94);
+  border-radius: 18px;
+  box-shadow: 0 6px 30px rgba(74, 59, 53, 0.18);
+  font-size: 14px;
+}
+
+.chat[hidden] {
+  display: none;
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-line,
+.chat-empty,
+.chat-hint,
+.chat-status {
+  margin: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chat-line strong {
+  margin-right: 4px;
+}
+
+.chat-line.own strong {
+  color: #3d82c4;
+}
+
+.chat-no {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.chat-empty,
+.chat-hint {
+  opacity: 0.7;
+  font-size: 13px;
+}
+
+.chat-status {
+  color: #b23b2a;
+  font-size: 12px;
+}
+
+.chat-status:empty {
+  display: none;
+}
+
+.chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chat-chips button,
+.chat-row button,
+.chat-row input {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  border-radius: 12px;
+  background: #efe7d8;
+  min-height: 36px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.chat-chips .chip-emoji {
+  font-size: 18px;
+  padding: 0 8px;
+}
+
+.chat-row {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px; /* keeps phones from zooming in */
+  cursor: text;
+}
+
+.chat-row .primary {
+  background: #3d82c4;
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .chat {
+    inset: auto 0 0 0;
+    width: auto;
+    height: 58%;
+    border-radius: 18px 18px 0 0;
+  }
+}
+
+/* Ticket code: large, spaced letters. */
+.sheet input.code {
+  font-size: 24px;
+  letter-spacing: 0.18em;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-header strong {
+  font-size: 15px;
+}
+
+.chat-close {
+  border: 0;
+  background: #efe7d8;
+  color: inherit;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* While the chat is open the camera hint steps aside; on phones the sheet also covers the buttons. */
+#ui.chat-open .hint {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  #ui.chat-open .actions {
+    display: none;
+  }
 }

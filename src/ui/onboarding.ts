@@ -1,9 +1,11 @@
 import { GAME } from '../config/game';
 import { NAME_MAX, cleanName, isOldEnough } from '../game/profile';
+import type { RedeemResult, TicketCheck } from '../game/server';
 import { type TextKey, t } from '../i18n';
 import { DEFAULT_LOOK, LOOK_FIELDS, type Look, randomLook } from '../world/looks';
 
-export interface NewResident {
+export interface NewFan {
+  code: string;
   name: string;
   birthYear: number;
   look: Look;
@@ -14,9 +16,15 @@ export interface OnboardingHooks {
   onEditorOpen(): void;
   /** A choice changed: redraw the character. */
   onLookChange(look: Look): void;
+  /** Asks the server whether the code can be used. */
+  checkTicket(code: string): Promise<TicketCheck>;
+  /** Takes the seat. */
+  takeSeat(fan: NewFan): Promise<RedeemResult>;
+  /** The sheet closed without taking a seat (the visitor chose to just look). */
+  onSpectate(): void;
 }
 
-type Step = 'welcome' | 'age' | 'editor' | 'account' | null;
+type Step = 'ticket' | 'age' | 'editor' | null;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -27,25 +35,27 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
 
 const hex = (color: number) => `#${color.toString(16).padStart(6, '0')}`;
 
+/** Shows a code as the visitor types it: upper case, grouped as XXXX-XXXX. */
+function formatCode(raw: string): string {
+  const c = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  return c.length > 4 ? `${c.slice(0, 4)}-${c.slice(4)}` : c;
+}
+
 /**
- * The sheet a newcomer sees before the game: welcome, birth year, then the character editor.
+ * The sheet a newcomer sees: ticket code, birth year, then the character editor.
  * The same editor is reused later to change the character. All text comes from the language files.
  */
 export class Onboarding {
   private step: Step = null;
+  private code = '';
   private birthYear = 0;
   private name = '';
   private look: Look = { ...DEFAULT_LOOK };
-  private tooYoung = false;
-  private nameError = false;
-  /** Set while editing an existing character: called instead of boarding the ferry. */
+  /** The message shown on the current step, as a text key. */
+  private error: TextKey | null = null;
+  private busy = false;
+  /** Set while editing an existing character: called instead of taking a seat. */
   private onSave: ((name: string, look: Look) => void) | null = null;
-  private onBoard: ((resident: NewResident) => void) | null = null;
-  private sendLink: ((email: string) => Promise<boolean>) | null = null;
-  /** Called when the sheet closes, however it was closed. */
-  private onClose: (() => void) | null = null;
-  private email = '';
-  private linkState: 'idle' | 'sending' | 'sent' | 'failed' = 'idle';
 
   constructor(
     private root: HTMLElement,
@@ -56,30 +66,21 @@ export class Onboarding {
     return this.step !== null;
   }
 
-  /** First visit: welcome, age, editor, then `onBoard` with the result. */
-  startNew(onBoard: (resident: NewResident) => void): void {
-    this.onBoard = onBoard;
+  /** First visit: ticket, age, editor, then the seat. */
+  startNew(code: string): void {
     this.onSave = null;
+    this.code = formatCode(code);
     this.look = randomLook(Math.random);
     this.name = '';
-    this.go('welcome');
+    this.go('ticket');
   }
 
   /** Later visits: change the character and name. */
   edit(name: string, look: Look, onSave: (name: string, look: Look) => void): void {
     this.onSave = onSave;
-    this.onBoard = null;
     this.name = name;
     this.look = { ...look };
     this.go('editor');
-  }
-
-  /** Asks for an e-mail address and sends a sign-in link to it. `onClose` runs when the sheet goes away. */
-  askAccount(sendLink: (email: string) => Promise<boolean>, onClose: () => void): void {
-    this.sendLink = sendLink;
-    this.linkState = 'idle';
-    this.go('account');
-    this.onClose = onClose;
   }
 
   /** Closes whatever is showing. */
@@ -92,10 +93,10 @@ export class Onboarding {
     if (this.step) this.render();
   }
 
-  private go(step: Step): void {
+  private go(step: Step, error: TextKey | null = null): void {
     this.step = step;
-    this.tooYoung = false;
-    this.nameError = false;
+    this.error = error;
+    this.busy = false;
     if (step === 'editor') {
       this.hooks.onEditorOpen();
       this.hooks.onLookChange(this.look);
@@ -107,9 +108,6 @@ export class Onboarding {
     this.step = null;
     this.root.hidden = true;
     this.root.replaceChildren();
-    const onClose = this.onClose;
-    this.onClose = null;
-    onClose?.();
   }
 
   private render(): void {
@@ -117,59 +115,52 @@ export class Onboarding {
     sheet.hidden = false;
     sheet.replaceChildren();
     sheet.dataset.step = this.step ?? '';
-    if (this.step === 'welcome') this.renderWelcome(sheet);
+    if (this.step === 'ticket') this.renderTicket(sheet);
     else if (this.step === 'age') this.renderAge(sheet);
     else if (this.step === 'editor') this.renderEditor(sheet);
-    else if (this.step === 'account') this.renderAccount(sheet);
   }
 
-  private renderAccount(sheet: HTMLElement): void {
-    sheet.append(el('h2', '', t('account.title')));
-    const later = el('button', '', t(this.linkState === 'sent' ? 'account.close' : 'account.later'));
-    later.type = 'button';
-    later.addEventListener('click', () => this.close());
-    if (this.linkState === 'sent') {
-      sheet.append(el('p', '', t('account.sent', { email: this.email })), later);
-      return;
-    }
-    sheet.append(el('p', '', t('account.hint')));
-    const input = el('input');
-    input.type = 'email';
-    input.value = this.email;
-    input.placeholder = t('account.emailPlaceholder');
-    input.autocomplete = 'email';
-    input.setAttribute('aria-label', t('account.emailPlaceholder'));
+  private renderTicket(sheet: HTMLElement): void {
+    sheet.append(el('h1', '', GAME.name), el('p', '', t('ticket.intro')));
+    const input = el('input', 'code');
+    input.type = 'text';
+    input.value = this.code;
+    input.placeholder = 'XXXX-XXXX';
+    input.maxLength = 9;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('autocapitalize', 'characters');
+    input.setAttribute('aria-label', t('ticket.label'));
+    input.addEventListener('input', () => {
+      this.code = formatCode(input.value);
+      input.value = this.code;
+    });
     sheet.append(input);
-    if (this.linkState === 'failed') sheet.append(el('p', 'error', t('account.failed')));
+    if (this.error) sheet.append(el('p', 'error', t(this.error)));
     const actions = el('div', 'sheet-actions');
-    const send = el('button', 'primary', t(this.linkState === 'sending' ? 'account.sending' : 'account.send'));
-    send.type = 'button';
-    send.disabled = this.linkState === 'sending';
-    send.addEventListener('click', async () => {
-      const email = input.value.trim();
-      this.email = email;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !this.sendLink) {
-        this.linkState = 'failed';
-        this.render();
+    const watch = el('button', '', t('ticket.watch'));
+    watch.type = 'button';
+    watch.addEventListener('click', () => {
+      this.close();
+      this.hooks.onSpectate();
+    });
+    const next = el('button', 'primary', t(this.busy ? 'common.wait' : 'common.continue'));
+    next.type = 'button';
+    next.disabled = this.busy;
+    next.addEventListener('click', async () => {
+      if (this.code.replace('-', '').length !== 8) {
+        this.go('ticket', 'ticket.invalid');
         return;
       }
-      this.linkState = 'sending';
+      this.busy = true;
       this.render();
-      const ok = await this.sendLink(email);
-      if (this.step !== 'account') return; // closed while waiting
-      this.linkState = ok ? 'sent' : 'failed';
-      this.render();
+      const answer = await this.hooks.checkTicket(this.code);
+      if (this.step !== 'ticket') return;
+      if (answer === 'ok') this.go('age');
+      else this.go('ticket', `ticket.${answer}` as TextKey);
     });
-    actions.append(later, send);
+    actions.append(watch, next);
     sheet.append(actions);
-  }
-
-  private renderWelcome(sheet: HTMLElement): void {
-    sheet.append(el('h1', '', GAME.name), el('p', '', t('welcome.tagline')));
-    const start = el('button', 'primary', t('welcome.start'));
-    start.type = 'button';
-    start.addEventListener('click', () => this.go('age'));
-    sheet.append(start);
   }
 
   private renderAge(sheet: HTMLElement): void {
@@ -187,15 +178,14 @@ export class Onboarding {
       select.append(option);
     }
     sheet.append(select);
-    if (this.tooYoung) sheet.append(el('p', 'error', t('age.tooYoung', { age: GAME.minAge })));
+    if (this.error) sheet.append(el('p', 'error', t(this.error, { age: GAME.minAge })));
     const next = el('button', 'primary', t('common.continue'));
     next.type = 'button';
     next.addEventListener('click', () => {
       this.birthYear = Number(select.value);
       if (!this.birthYear) return;
       if (!isOldEnough(this.birthYear)) {
-        this.tooYoung = true;
-        this.render();
+        this.go('age', 'age.tooYoung');
         return;
       }
       this.go('editor');
@@ -204,7 +194,7 @@ export class Onboarding {
   }
 
   private renderEditor(sheet: HTMLElement): void {
-    sheet.append(el('h2', '', t('editor.title')));
+    sheet.append(el('h2', '', t(this.onSave ? 'editor.editTitle' : 'editor.title')));
 
     const nameRow = el('label', 'field');
     nameRow.append(el('span', '', t('editor.name')));
@@ -219,7 +209,7 @@ export class Onboarding {
     });
     nameRow.append(input);
     sheet.append(nameRow);
-    if (this.nameError) sheet.append(el('p', 'error', t('editor.nameError')));
+    if (this.error) sheet.append(el('p', 'error', t(this.error)));
 
     const rows = el('div', 'rows');
     for (const field of LOOK_FIELDS) {
@@ -255,20 +245,34 @@ export class Onboarding {
       this.hooks.onLookChange(this.look);
       this.render();
     });
-    const done = el('button', 'primary', t(this.onSave ? 'editor.save' : 'editor.board'));
+    const done = el('button', 'primary', t(this.busy ? 'common.wait' : this.onSave ? 'editor.save' : 'editor.takeSeat'));
     done.type = 'button';
-    done.addEventListener('click', () => {
+    done.disabled = this.busy;
+    done.addEventListener('click', async () => {
       const name = cleanName(this.name);
       if (!name) {
-        this.nameError = true;
-        this.render();
+        this.go('editor', 'editor.nameError');
         return;
       }
       const look = { ...this.look };
-      const { onSave, onBoard, birthYear } = this;
-      this.close();
-      if (onSave) onSave(name, look);
-      else onBoard?.({ name, birthYear, look });
+      if (this.onSave) {
+        const onSave = this.onSave;
+        this.close();
+        onSave(name, look);
+        return;
+      }
+      this.busy = true;
+      this.render();
+      const result = await this.hooks.takeSeat({ code: this.code, name, birthYear: this.birthYear, look });
+      if (result.ok) {
+        this.close();
+        return;
+      }
+      // Send the visitor back to the step that can fix the problem.
+      if (result.error === 'invalid' || result.error === 'used' || result.error === 'full') this.go('ticket', `ticket.${result.error}`);
+      else if (result.error === 'too_young') this.go('age', 'age.tooYoung');
+      else if (result.error === 'invalid_name') this.go('editor', 'editor.nameError');
+      else this.go('editor', `seat.${result.error}` as TextKey);
     });
     actions.append(random, done);
     sheet.append(actions);

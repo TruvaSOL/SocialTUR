@@ -72,6 +72,16 @@ Kuş bakışında üçgen sayısı orta sınıf telefon bütçesinin (150.000) �
 
 Telefonda ölçüm için adres seçenekleri: `?stats` ölçüm katmanını açar; `?quality=1` (1-6) otomatik kaliteyi durdurup tek bir kalite basamağını sabitler, böylece ham kare hızı okunur.
 
+### Stadyum (2026-11-17, bu bilgisayarda; kare hızı telefonda ölçülmedi)
+
+| Sahne | Çizim çağrısı | Üçgen |
+|-------|---------------|-------|
+| Kuş bakışı, boş stadyum | 17 | 198.000 |
+| Kuş bakışı, 50.000 taraftar | 16 | 298.000 |
+| Koltuktan bakış, 50.000 taraftar, 140'ı 3D | 32 | 394.000 |
+
+Yayın boyutu 0,82 MB. Koltuktan bakış güncel telefon bütçesini (300.000 üçgen) aşıyor; yükü yakındaki 3D karakterler getiriyor (her biri ~1.400 üçgen). Otomatik kalite önce çözünürlüğü, sonra gölgeyi, sonra 3D karakter sayısını (140 → 0) düşürüyor. Gerçek telefonda ölçülmeli.
+
 ## Kurallar
 
 - Tekrarlayan her model tek çizim çağrısında toplanır.

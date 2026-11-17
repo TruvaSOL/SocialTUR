@@ -7,8 +7,8 @@ export interface Clouds {
   update(dt: number): void;
 }
 
-const COUNT = 9;
-const SPAN = 260;
+const COUNT = 14;
+const SPAN = 2400;
 
 /** A handful of drifting clouds: one shape, drawn as one batch. */
 export function createClouds(): Clouds {
@@ -23,9 +23,9 @@ export function createClouds(): Clouds {
   mesh.frustumCulled = false;
 
   const clouds = Array.from({ length: COUNT }, (_, i) => ({
-    position: new Vector3(-SPAN / 2 + rnd() * SPAN, 34 + rnd() * 16, -110 + (i / COUNT) * 220 + rnd() * 12),
-    scale: 4 + rnd() * 4,
-    speed: 0.6 + rnd() * 0.6,
+    position: new Vector3(-SPAN / 2 + rnd() * SPAN, 260 + rnd() * 120, -1000 + (i / COUNT) * 2000 + rnd() * 60),
+    scale: 34 + rnd() * 30,
+    speed: 3 + rnd() * 3,
   }));
   const m = new Matrix4();
   const q = new Quaternion();

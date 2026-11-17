@@ -4,18 +4,18 @@ interface Step {
   /** Fraction of the device's base pixel ratio. */
   pixel: number;
   shadow: boolean;
-  /** Crowd characters farther than this (metres) from the point of interest are not drawn. */
-  crowdRange: number;
+  /** Most fans drawn as full 3D characters near the camera; the rest are flat cut-outs. */
+  near3d: number;
 }
 
-/** From best to cheapest: resolution goes first, then the shadow, then the far crowd. */
+/** From best to cheapest: resolution goes first, then the shadow, then the nearby 3D fans. */
 const STEPS: Step[] = [
-  { pixel: 1, shadow: true, crowdRange: Infinity },
-  { pixel: 0.85, shadow: true, crowdRange: Infinity },
-  { pixel: 0.7, shadow: true, crowdRange: Infinity },
-  { pixel: 0.7, shadow: false, crowdRange: Infinity },
-  { pixel: 0.55, shadow: false, crowdRange: 90 },
-  { pixel: 0.55, shadow: false, crowdRange: 55 },
+  { pixel: 1, shadow: true, near3d: 140 },
+  { pixel: 0.85, shadow: true, near3d: 120 },
+  { pixel: 0.7, shadow: true, near3d: 100 },
+  { pixel: 0.7, shadow: false, near3d: 70 },
+  { pixel: 0.55, shadow: false, near3d: 40 },
+  { pixel: 0.55, shadow: false, near3d: 0 },
 ];
 const WINDOW_SECONDS = 1.5;
 const WARMUP_SECONDS = 3;
@@ -47,8 +47,8 @@ export class AutoQuality {
     this.apply(Math.min(STEPS.length, Math.max(1, Math.round(oneBased))) - 1);
   }
 
-  get crowdRange(): number {
-    return STEPS[this.step].crowdRange;
+  get near3d(): number {
+    return STEPS[this.step].near3d;
   }
 
   frame(dt: number): void {

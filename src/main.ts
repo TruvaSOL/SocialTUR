@@ -1,291 +1,386 @@
-import { Mesh, Timer, Vector3 } from 'three';
+import { Timer, Vector3 } from 'three';
 import { seededRandom } from './art/builder';
 import { GAME } from './config/game';
 import { AutoQuality } from './engine/quality';
-import { createStage } from './engine/stage';
+import { SUN_DIR, createStage } from './engine/stage';
 import { StatsOverlay } from './engine/stats';
-import { type Profile, loadProfile, saveProfile } from './game/profile';
-import { arrive, loadOwnProfile, onSignedIn, saveCharacter, sendSignInLink, serverReady, signedInUser } from './game/server';
-import { applyToDom, getLocale, onLocaleChange, setLocale, t } from './i18n';
+import { type Profile, ageFromBirthYear, loadProfile, saveProfile } from './game/profile';
+import {
+  type FanRow,
+  checkTicket,
+  existingUser,
+  loadChat,
+  loadFans,
+  loadOwnProfile,
+  redeem,
+  saveCharacter,
+  sendChat,
+  serverReady,
+  subscribe,
+} from './game/server';
+import { type TextKey, applyToDom, getLocale, onLocaleChange, setLocale, t } from './i18n';
+import { createFans, waveAt, waveLift } from './stadium/fans';
+import { CAPACITY, SEATS, seatLabel } from './stadium/layout';
+import { FAN_SCALE, FLOOR, NearFans } from './stadium/nearFans';
+import { createPitch } from './stadium/pitch';
+import { createSeats } from './stadium/seats';
+import { createLedTexture, createScoreboard } from './stadium/screens';
+import { createStructure } from './stadium/structure';
+import { createSurroundings } from './stadium/surroundings';
+import { Chat } from './ui/chat';
 import { Onboarding } from './ui/onboarding';
-import { Arrival } from './world/arrival';
 import { Character } from './world/character';
 import { createClouds } from './world/clouds';
-import { BLOB_Y, CROWD_MAX, Crowd, blobGeometry, blobMaterial } from './world/crowd';
-import { createGround } from './world/ground';
-import { computePose, createPose } from './world/pose';
-import { createTown } from './world/town';
-import { Walker } from './world/walker';
+import { type Look, randomLook } from './world/looks';
+import { computePose, computeSeatedPose, createPose } from './world/pose';
 
 const stage = createStage(document.querySelector<HTMLCanvasElement>('#scene')!);
 const { renderer, scene, camera, controls } = stage;
+const params = new URLSearchParams(location.search);
 
-// World: the island floor, the town, clouds, the crowd, and the player's own character.
-scene.add(createGround());
-const town = createTown();
-scene.add(town.group);
+// ---------------------------------------------------------------- the stadium
+const led = createLedTexture();
+const structure = createStructure(led.texture);
+scene.add(createSurroundings(), structure.group, createSeats(), createPitch(led.texture));
+const board = createScoreboard(structure.screens);
+scene.add(board.group);
 const clouds = createClouds();
 scene.add(clouds.mesh);
-const crowd = new Crowd();
-scene.add(crowd.group);
+const fans = createFans(SUN_DIR);
+scene.add(fans.mesh);
+const near = new NearFans();
+scene.add(near.group);
 
-// The player's character. Until the server exists it strolls by itself once it has arrived.
-let profile: Profile | null = loadProfile();
-const player = new Character(profile?.look);
-const playerWalker = new Walker(seededRandom(99), { scale: 1, cadence: 1, lane: 1.6 });
-crowd.guests.push(playerWalker);
+// The player's own character: on the centre spot while being made, then in their seat.
+const player = new Character();
+player.root.visible = false;
+scene.add(player.root);
 const playerPose = createPose();
-const playerBlob = new Mesh(blobGeometry, blobMaterial);
-scene.add(player.root, playerBlob);
-const HEAD_HEIGHT = 1.25;
 const head = new Vector3();
-const arrival = new Arrival(town.ferry);
+/** The player's seat (0-based, best first), once they have one. */
+let mySeat: number | null = null;
+let profile: Profile | null = loadProfile();
 
-/**
- * What the player is doing:
- * 'intro' reading the welcome and age steps over a view of the town,
- * 'creating' making a character on the ferry, 'arriving' sailing in and walking ashore,
- * 'playing' in town, 'editing' changing the character later.
- */
-type Mode = 'intro' | 'creating' | 'arriving' | 'playing' | 'editing';
-let mode: Mode = 'playing';
-/** Where the character stands and faces while it is not walking the streets. */
-const pose = { x: 0, y: 0, z: 0, yaw: 0, walk: 0, wave: 0, cycle: 0, time: 0 };
+/** Everyone in the stands, by seat. */
+const crowd: (FanRow | null)[] = [];
+let latestName: string | null = null;
 
-// Interface.
+function setFan(row: FanRow): void {
+  const index = row.no - 1;
+  if (index < 0 || index >= SEATS.count) return;
+  crowd[index] = row;
+  // The player's own seat is drawn by their own character.
+  const look = index === mySeat ? null : row.look;
+  fans.setFan(index, look);
+  near.setFan(index, look);
+  if (row.no > fans.count) {
+    fans.setCount(row.no);
+    latestName = row.name;
+  }
+}
+
+// ---------------------------------------------------------------- interface
 const ui = document.querySelector<HTMLElement>('#ui')!;
 document.title = GAME.name;
 document.querySelector('#game-name')!.textContent = GAME.name;
 const langButton = document.querySelector<HTMLButtonElement>('#btn-lang')!;
+const ticketButton = document.querySelector<HTMLButtonElement>('#btn-ticket')!;
 const viewButton = document.querySelector<HTMLButtonElement>('#btn-view')!;
-const crowdButton = document.querySelector<HTMLButtonElement>('#btn-crowd')!;
-const housesButton = document.querySelector<HTMLButtonElement>('#btn-houses')!;
-const buildButton = document.querySelector<HTMLButtonElement>('#btn-build')!;
 const characterButton = document.querySelector<HTMLButtonElement>('#btn-character')!;
-const accountButton = document.querySelector<HTMLButtonElement>('#btn-account')!;
+const demoButton = document.querySelector<HTMLButtonElement>('#btn-demo')!;
+const counter = document.querySelector<HTMLElement>('#counter')!;
+const seatChip = document.querySelector<HTMLElement>('#seat-label')!;
 const banner = document.querySelector<HTMLElement>('#banner')!;
-const CROWD_SIZES = [50, 100, 150, CROWD_MAX];
-// Preview controls until the server drives them: how full the town is, and how far the shared buildings have got.
-const HOUSE_FRACTIONS = [0.1, 0.35, 0.65, 1];
-let houseStep = HOUSE_FRACTIONS.length - 1;
-let buildStage = town.maxStage;
-town.setStage(buildStage);
+const numberFormat = () => new Intl.NumberFormat(getLocale() === 'tr' ? 'tr-TR' : 'en-GB');
 
-const showLabels = () => {
-  // Each button shows what pressing it would switch to.
+/** 'spectating' looks around; 'joining' is going through the ticket sheet; 'seated' has a seat. */
+type Mode = 'spectating' | 'joining' | 'seated';
+let mode: Mode = 'spectating';
+
+function seatText(index: number): string {
+  const s = seatLabel(index);
+  return t('seat.label', { stand: t(`stand.${s.stand}` as TextKey), block: s.block, row: s.row, seat: s.seat });
+}
+
+function refreshLabels(): void {
   langButton.textContent = getLocale() === 'tr' ? 'EN' : 'TR';
-  viewButton.textContent = t(stage.mode === 'eye' ? 'view.overview' : 'view.eye');
-  crowdButton.textContent = `${t('crowd.button')}: ${crowd.count}`;
-  housesButton.textContent = `${t('houses.button')}: ${town.houses}/${town.lotCount}`;
-  buildButton.textContent = `${t('build.button')}: ${buildStage}/${town.maxStage}`;
-};
+  const fmt = numberFormat();
+  counter.textContent = t('counter', { count: fmt.format(fans.count), capacity: fmt.format(CAPACITY) });
+  viewButton.textContent = t(stage.mode === 'eye' ? 'view.overview' : 'view.mySeat');
+  ticketButton.hidden = mode !== 'spectating' || !serverReady;
+  viewButton.hidden = mode !== 'seated';
+  characterButton.hidden = mode !== 'seated';
+  seatChip.hidden = mySeat === null;
+  if (mySeat !== null) seatChip.textContent = seatText(mySeat);
+  demoButton.textContent = t('demo.button', { count: fmt.format(fans.count) });
+  board.set(fans.count, CAPACITY, latestName);
+}
 
-const setMode = (next: Mode) => {
+function setMode(next: Mode): void {
   mode = next;
-  ui.classList.toggle('onboarding', next !== 'playing');
-};
+  ui.classList.toggle('onboarding', next === 'joining');
+  refreshLabels();
+}
 
+function showBanner(name: string, fanNo: number): void {
+  banner.querySelector('strong')!.textContent = t('arrival.banner', { name });
+  banner.querySelector('span')!.textContent = `${seatText(fanNo - 1)} · ${t('arrival.fanNo', { no: fanNo })}`;
+  banner.hidden = false;
+  window.setTimeout(() => (banner.hidden = true), 10000);
+}
+
+// ---------------------------------------------------------------- camera moves
+/** A smooth camera move from wherever it is to a new view. */
+let flight: { from: Vector3; fromTarget: Vector3; to: Vector3; toTarget: Vector3; t: number; then: () => void } | null = null;
+function flyTo(to: Vector3, toTarget: Vector3, then: () => void): void {
+  controls.enabled = false;
+  flight = { from: camera.position.clone(), fromTarget: controls.target.clone(), to, toTarget, t: 0, then };
+}
+
+function seatView(index: number): { eye: Vector3; target: Vector3 } {
+  const x = SEATS.pos[index * 3];
+  const y = SEATS.pos[index * 3 + 1];
+  const z = SEATS.pos[index * 3 + 2];
+  const yaw = SEATS.yaw[index];
+  const fx = Math.sin(yaw);
+  const fz = Math.cos(yaw);
+  // Looking over the character's shoulder at the pitch, from high enough to clear the heads behind.
+  const target = new Vector3(x + fx * 3.5, y + 0.7, z + fz * 3.5);
+  const eye = new Vector3(x - fx * 1.3, y + 2.2, z - fz * 1.3);
+  return { eye, target };
+}
+
+function goToSeat(fly: boolean): void {
+  if (mySeat === null) return;
+  const { eye, target } = seatView(mySeat);
+  const settle = () => {
+    stage.setMode('eye', target, SEATS.yaw[mySeat!]);
+    camera.position.copy(eye);
+    controls.target.copy(target);
+    controls.update();
+    refreshLabels();
+  };
+  if (fly) flyTo(eye, target, settle);
+  else settle();
+}
+
+function takeSeat(index: number, fly: boolean): void {
+  mySeat = index;
+  // Whoever was drawn there by the crowd (it is us) steps aside for the real character.
+  fans.setFan(index, null);
+  near.setFan(index, null);
+  if (index + 1 > fans.count) fans.setCount(index + 1);
+  player.root.visible = true;
+  setMode('seated');
+  chat.setWriter(profile && ageFromBirthYear(profile.birthYear) >= 18 ? 'free' : 'presets', index + 1);
+  goToSeat(fly);
+}
+
+// ---------------------------------------------------------------- joining
 const onboarding = new Onboarding(document.querySelector<HTMLElement>('#sheet')!, {
   onEditorOpen() {
-    // Close-up of the character from the front.
-    if (mode === 'intro') setMode('creating');
-    stage.setMode('eye', head, pose.yaw + Math.PI);
-    stage.lookFrom(head, pose.yaw + Math.PI, 3.3);
-    stage.setLift(0.31); // the sheet covers the lower half; keep the character above it
-    showLabels();
+    if (mode !== 'seated') {
+      // Being made on the centre spot, the whole stadium around.
+      player.root.visible = true;
+      // Low and close, so the stands rise behind the character.
+      stage.setMode('eye', new Vector3(0, 1.05, 3), 0);
+      camera.position.set(0, 1.2, 7.6);
+      controls.target.set(0, 1.05, 3);
+      controls.update();
+    }
+    stage.setLift(0.3);
   },
   onLookChange(look) {
     player.setLook(look);
   },
+  checkTicket,
+  async takeSeat(fan) {
+    const result = await redeem(fan.code, { name: fan.name, birthYear: fan.birthYear, look: fan.look }, getLocale());
+    if (!result.ok) return result;
+    profile = { name: fan.name, birthYear: fan.birthYear, look: fan.look, residentNo: result.fanNo };
+    saveProfile(profile);
+    stage.setLift(0);
+    crowd[result.fanNo - 1] = { no: result.fanNo, name: fan.name, look: fan.look };
+    latestName = fan.name;
+    takeSeat(result.fanNo - 1, true);
+    showBanner(fan.name, result.fanNo);
+    return result;
+  },
+  onSpectate() {
+    stage.setLift(0);
+    player.root.visible = false;
+    stage.setMode('overview');
+    setMode('spectating');
+  },
 });
 
-function showBanner(current: Profile): void {
-  banner.querySelector('strong')!.textContent = t('arrival.banner', { name: current.name });
-  banner.querySelector('span')!.textContent =
-    current.residentNo === null ? t('arrival.guest') : t('arrival.resident', { no: String(current.residentNo).padStart(4, '0') });
-  banner.hidden = false;
-  window.setTimeout(() => (banner.hidden = true), 9000);
-}
-
-/**
- * Brings this device and the server into agreement about who the player is.
- * Signed in with a record on the server: the server's record wins.
- * Signed in without one: the guest made on this device becomes a resident and gets a number.
- */
-let syncing = false;
-async function syncAccount(): Promise<void> {
-  if (!serverReady || syncing) return;
-  syncing = true;
-  try {
-    const userId = await signedInUser();
-    accountButton.hidden = userId !== null;
-    if (!userId) return;
-    const own = await loadOwnProfile(userId);
-    if (own) {
-      profile = own;
-      saveProfile(own);
-      player.setLook(own.look);
-      if (mode === 'intro' || mode === 'creating') {
-        // A resident on a new device: no need to make a character again.
-        onboarding.dismiss();
-        arrival.moor();
-        stage.setLift(0);
-        stage.setMode('overview');
-        setMode('playing');
-        showLabels();
-      }
-    } else if (profile && profile.residentNo === null) {
-      const residentNo = await arrive(profile, getLocale());
-      if (residentNo !== null) {
-        profile = { ...profile, residentNo };
-        saveProfile(profile);
-        showBanner(profile);
-      }
-    }
-  } finally {
-    syncing = false;
-  }
-}
-
-function beginFirstVisit(): void {
-  setMode('intro');
-  arrival.wait();
-  onboarding.startNew((resident) => {
-    // No account yet: the newcomer is a guest kept on this device.
-    profile = { ...resident, residentNo: null };
-    saveProfile(profile);
-    setMode('arriving');
-    arrival.sail();
-    stage.setMode('eye', head, arrival.yaw);
-    stage.setLift(0);
-    stage.lookFrom(head, -Math.PI / 2 - 0.9, 9); // off the ferry's side, looking past the character at the island
-    showLabels();
-    void syncAccount(); // already signed in: the new character becomes a resident straight away
-  });
+function startJoining(): void {
+  setMode('joining');
+  stage.setLift(0.18); // keep the stadium clear of the sheet
+  onboarding.startNew(params.get('kod') ?? params.get('code') ?? '');
 }
 
 langButton.addEventListener('click', () => setLocale(getLocale() === 'tr' ? 'en' : 'tr'));
+ticketButton.addEventListener('click', startJoining);
 viewButton.addEventListener('click', () => {
-  stage.setMode(stage.mode === 'eye' ? 'overview' : 'eye', head, pose.yaw);
-  showLabels();
-});
-crowdButton.addEventListener('click', () => {
-  crowd.count = CROWD_SIZES[(CROWD_SIZES.indexOf(crowd.count) + 1) % CROWD_SIZES.length];
-  showLabels();
-});
-housesButton.addEventListener('click', () => {
-  houseStep = (houseStep + 1) % HOUSE_FRACTIONS.length;
-  town.setHouses(town.lotCount * HOUSE_FRACTIONS[houseStep]);
-  stage.refreshShadows();
-  showLabels();
-});
-buildButton.addEventListener('click', () => {
-  buildStage = (buildStage + 1) % (town.maxStage + 1);
-  town.setStage(buildStage);
-  stage.refreshShadows();
-  showLabels();
+  if (stage.mode === 'eye') {
+    stage.setMode('overview');
+    refreshLabels();
+  } else {
+    goToSeat(true);
+  }
 });
 characterButton.addEventListener('click', () => {
-  if (!profile || mode !== 'playing') return;
-  setMode('editing');
-  pose.walk = 0;
-  pose.wave = 0;
+  if (!profile || mode !== 'seated') return;
   onboarding.edit(profile.name, profile.look, (name, look) => {
     profile = { ...profile!, name, look };
     saveProfile(profile);
-    if (profile.residentNo !== null) void saveCharacter(name, look);
     stage.setLift(0);
-    setMode('playing');
+    void saveCharacter(name, look);
+    goToSeat(false);
   });
 });
-accountButton.addEventListener('click', () => {
-  if (mode !== 'playing') return;
-  setMode('editing'); // stand still while the sheet is open
-  pose.walk = 0;
-  pose.wave = 0;
-  onboarding.askAccount(sendSignInLink, () => setMode('playing'));
-});
-accountButton.hidden = true;
-onSignedIn(() => void syncAccount());
-void syncAccount();
+
+const chat = new Chat(document.querySelector<HTMLElement>('#chat')!, document.querySelector<HTMLButtonElement>('#btn-chat')!, sendChat);
 
 onLocaleChange(() => {
-  showLabels();
+  refreshLabels();
   onboarding.refresh();
+  chat.refresh();
+  led.redraw();
+  board.redraw();
 });
 applyToDom();
-showLabels();
 
+// ---------------------------------------------------------------- preview fill (?demo)
+// Fills the stands with made-up fans so the stadium can be judged empty, half full or full.
+// Nothing is sent to the server; only this screen changes.
+const DEMO_STEPS = [0, 1000, 10000, 25000, 50000];
+let demoStep = 0;
+function demoFill(count: number): void {
+  const rnd = seededRandom(2024);
+  for (let i = 0; i < SEATS.count; i++) {
+    const look: Look | null = i < count ? randomLook(rnd) : null;
+    fans.setFan(i, look);
+    near.setFan(i, look);
+  }
+  fans.setCount(count);
+  latestName = null;
+  refreshLabels();
+}
+if (params.has('demo')) {
+  demoButton.hidden = false;
+  demoButton.addEventListener('click', () => {
+    demoStep = (demoStep + 1) % DEMO_STEPS.length;
+    demoFill(DEMO_STEPS[demoStep]);
+  });
+  const start = Number(params.get('demo'));
+  if (start > 0) {
+    const known = DEMO_STEPS.indexOf(start);
+    demoStep = known >= 0 ? known : 0;
+    demoFill(Math.min(SEATS.count, start));
+  }
+}
+
+// ---------------------------------------------------------------- measuring
 const quality = new AutoQuality(stage);
 const stats = new StatsOverlay(document.querySelector<HTMLElement>('#stats')!, renderer, quality, () => [
-  [t('stats.people'), `${crowd.visible} / ${crowd.count}`],
+  [t('stats.fans'), numberFormat().format(fans.count)],
+  [t('stats.near'), String(near.drawn)],
 ]);
 document.querySelector('#btn-stats')!.addEventListener('click', () => stats.toggle());
-// Address options for measuring: ?stats opens the overlay, ?quality=1..6 holds one quality step.
-const params = new URLSearchParams(location.search);
 if (params.has('stats')) stats.toggle(true);
 if (params.has('quality')) quality.lock(Number(params.get('quality')));
 
 const hint = document.querySelector<HTMLElement>('.hint')!;
 controls.addEventListener('start', () => hint.classList.add('gone'));
 
-if (!profile) beginFirstVisit();
+// ---------------------------------------------------------------- start-up
+async function boot(): Promise<void> {
+  refreshLabels();
+  if (!serverReady || params.has('demo')) return;
 
-// Main loop.
+  const userId = await existingUser();
+  if (userId) {
+    const own = await loadOwnProfile(userId);
+    if (own) {
+      profile = own;
+      saveProfile(own);
+    }
+  }
+  if (profile?.residentNo && userId) {
+    player.setLook(profile.look);
+    takeSeat(profile.residentNo - 1, false);
+  } else {
+    profile = null;
+    startJoining();
+  }
+
+  subscribe(
+    (row) => {
+      setFan(row);
+      refreshLabels();
+    },
+    (message) => chat.add([message]),
+  );
+  void loadChat().then((messages) => chat.add(messages));
+  await loadFans((rows) => {
+    for (const row of rows) setFan(row);
+    refreshLabels();
+  });
+  // The latest arrival is the highest number.
+  const last = crowd[fans.count - 1];
+  if (last) latestName = last.name;
+  refreshLabels();
+}
+void boot();
+
+// ---------------------------------------------------------------- main loop
 let time = 0;
 function step(dt: number): void {
   time += dt;
-  town.update(time); // first: it moves the ferry the newcomer may be standing on
 
-  if (mode === 'playing') {
-    playerWalker.update(dt);
-    pose.x = playerWalker.x;
-    pose.y = 0;
-    pose.z = playerWalker.z;
-    pose.yaw = playerWalker.yaw;
-    pose.walk = playerWalker.walk;
-    pose.wave = playerWalker.wave;
-    pose.cycle = playerWalker.phase;
-    pose.time = playerWalker.time;
-  } else if (mode === 'editing') {
-    pose.time += dt; // standing still, breathing
-  } else {
-    const before = arrival.phase;
-    arrival.update(dt);
-    pose.x = arrival.x;
-    pose.y = arrival.y;
-    pose.z = arrival.z;
-    pose.yaw = arrival.yaw;
-    pose.walk = arrival.walk;
-    pose.wave = arrival.wave;
-    pose.cycle = arrival.cycle;
-    pose.time = arrival.time;
-    if (before === 'walking' && arrival.phase === 'greeting' && profile) {
-      // Stepping onto the island: the announcement goes up and people nearby wave back.
-      showBanner(profile);
-      crowd.greetNear(pose.x, pose.z, 30);
+  if (flight) {
+    flight.t = Math.min(1, flight.t + dt / 2.6);
+    const k = flight.t * flight.t * (3 - 2 * flight.t);
+    camera.position.lerpVectors(flight.from, flight.to, k);
+    // Rise in the middle of the move, so the camera sweeps over the stands rather than through them.
+    camera.position.y += Math.sin(Math.PI * k) * 30;
+    controls.target.lerpVectors(flight.fromTarget, flight.toTarget, k);
+    camera.lookAt(controls.target);
+    if (flight.t >= 1) {
+      const done = flight.then;
+      flight = null;
+      controls.enabled = true;
+      done();
     }
-    if (mode === 'arriving' && arrival.phase === 'done') {
-      playerWalker.placeNear(pose.x, pose.z, 5, 2);
-      playerWalker.yaw = pose.yaw;
-      setMode('playing');
-    }
-    // Keep the stand-in walker where the character is, so the crowd steps around it.
-    playerWalker.x = pose.x;
-    playerWalker.z = pose.z;
   }
 
-  player.root.position.set(pose.x, pose.y, pose.z);
-  player.root.rotation.y = pose.yaw;
-  player.applyPose(computePose(playerPose, pose.cycle, pose.time, pose.walk, pose.wave));
-  playerBlob.position.set(pose.x, pose.y + BLOB_Y, pose.z);
-  head.set(pose.x, pose.y + HEAD_HEIGHT, pose.z);
+  // The player's character: in their seat, or standing on the centre spot while being made.
+  if (player.root.visible) {
+    if (mySeat !== null) {
+      const x = SEATS.pos[mySeat * 3];
+      const y = SEATS.pos[mySeat * 3 + 1];
+      const z = SEATS.pos[mySeat * 3 + 2];
+      player.root.position.set(x, y, z);
+      player.root.rotation.y = SEATS.yaw[mySeat];
+      player.root.scale.setScalar(FAN_SCALE);
+      const lift = waveLift(x, z, waveAt(time));
+      player.applyPose(computeSeatedPose(playerPose, time, 0.5, lift, lift * 0.9, FLOOR));
+      head.set(x, y + 1.0, z);
+    } else {
+      player.root.position.set(0, 0, 3);
+      player.root.rotation.y = 0;
+      player.root.scale.setScalar(1);
+      player.applyPose(computePose(playerPose, 0, time, 0, 0));
+    }
+  }
 
-  stage.follow(head);
-  controls.update();
-
-  crowd.range = quality.crowdRange;
-  crowd.update(dt, camera, controls.target);
+  if (!flight) controls.update();
+  near.max = quality.near3d;
+  near.update(time, camera.position, fans.count, 11);
+  fans.update(time, near.splitEye, near.radius);
+  led.update(dt);
   clouds.update(dt);
   renderer.render(scene, camera);
 }
@@ -302,5 +397,5 @@ renderer.setAnimationLoop((now) => {
 
 // Development only: lets a test advance the scene by exact amounts of time.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __dev: { step, stage, crowd, quality, renderer, town, arrival } });
+  Object.assign(window, { __dev: { step, stage, fans, near, quality, renderer, demoFill, takeSeat, chat, onboarding } });
 }

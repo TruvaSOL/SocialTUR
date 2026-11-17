@@ -1,7 +1,7 @@
-import { DirectionalLight, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
+import { DirectionalLight, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-/** 'overview' is the free camera over the district; 'eye' follows a character at head height. */
+/** 'overview' is the free camera round the stadium; 'eye' sits just behind a character (the player's seat). */
 export type ViewMode = 'overview' | 'eye';
 
 export interface Stage {
@@ -27,15 +27,18 @@ export interface Stage {
   setShadows(on: boolean): void;
 }
 
-const VIEW_DIR = new Vector3(0.6, 0.5, 0.78).normalize();
-const SUN_DIR = new Vector3(7, 12, 6).normalize();
-/** Radius that must fit the screen's height, and its width, when the district is first shown. */
-const FIT_HEIGHT = 72;
-const FIT_WIDTH = 98;
+const VIEW_DIR = new Vector3(0.5, 0.62, 0.6).normalize();
+/** Towards the sun: high in the south-west, so one stand is in its own shade and the other bright. */
+export const SUN_DIR = new Vector3(-0.42, 0.78, 0.46).normalize();
+/** The sky's colour at the horizon; the haze fades distant things into it. */
+export const HORIZON = 0xdfeaf0;
+/** Radius that must fit the screen's height, and its width, when the stadium is first shown. */
+const FIT_HEIGHT = 112;
+const FIT_WIDTH = 118;
 /** How far from the centre the camera target may be dragged. */
-const TARGET_LIMIT = 80;
-const OVERVIEW_FOV = 32;
-const EYE_FOV = 55;
+const TARGET_LIMIT = 150;
+const OVERVIEW_FOV = 34;
+const EYE_FOV = 58;
 
 export function createStage(canvas: HTMLCanvasElement): Stage {
   // Fail with a clear message (shown by the on-screen crash box) when 3D drawing is unavailable.
@@ -50,23 +53,24 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   renderer.shadowMap.needsUpdate = true;
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(OVERVIEW_FOV, 1, 0.4, 600);
+  scene.fog = new Fog(HORIZON, 420, 2400);
+  const camera = new PerspectiveCamera(OVERVIEW_FOV, 1, 0.25, 3200);
 
   // Cheap lighting: sky/ground ambient plus one warm sun with the scene's only shadow.
-  scene.add(new HemisphereLight(0xcfe8ff, 0xe8cfa0, 1.15));
-  const sun = new DirectionalLight(0xfff1d6, 2.7);
-  sun.position.copy(SUN_DIR).multiplyScalar(160);
+  scene.add(new HemisphereLight(0xd2e9ff, 0xa89c86, 1.1));
+  const sun = new DirectionalLight(0xfff0d8, 2.6);
+  sun.position.copy(SUN_DIR).multiplyScalar(400);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -100;
-  sun.shadow.camera.right = 100;
-  sun.shadow.camera.top = 100;
-  sun.shadow.camera.bottom = -100;
-  sun.shadow.camera.near = 20;
-  sun.shadow.camera.far = 300;
+  sun.shadow.camera.left = -150;
+  sun.shadow.camera.right = 150;
+  sun.shadow.camera.top = 150;
+  sun.shadow.camera.bottom = -150;
+  sun.shadow.camera.near = 150;
+  sun.shadow.camera.far = 650;
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.bias = -0.0008;
-  sun.shadow.normalBias = 0.08;
+  sun.shadow.bias = -0.0012;
+  sun.shadow.normalBias = 0.3;
   scene.add(sun);
 
   const controls = new OrbitControls(camera, canvas);
@@ -82,13 +86,15 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   const applyLimits = () => {
     const eye = mode === 'eye';
     controls.enablePan = !eye;
-    controls.minDistance = eye ? 2.2 : 8;
-    controls.maxDistance = eye ? 7 : 380;
-    controls.minPolarAngle = eye ? 0.95 : 0;
-    controls.maxPolarAngle = eye ? 1.56 : 1.45; // never dip below the ground
+    controls.minDistance = eye ? 1.4 : 20;
+    controls.maxDistance = eye ? 10 : 1100;
+    controls.minPolarAngle = eye ? 0.45 : 0;
+    controls.maxPolarAngle = eye ? 1.62 : 1.42; // never dip below the ground
     controls.autoRotate = !eye && !touched; // gentle turntable until the player touches the screen
     controls.autoRotateSpeed = 0.25;
     camera.fov = eye ? EYE_FOV : OVERVIEW_FOV;
+    // Depth precision: a close near plane only in the seat view; far views keep thin layers apart.
+    camera.near = eye ? 0.15 : 2;
     camera.updateProjectionMatrix();
   };
   applyLimits();
@@ -103,7 +109,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     const t = controls.target;
     const d = Math.hypot(t.x, t.z);
     if (d > TARGET_LIMIT) t.multiplyScalar(TARGET_LIMIT / d);
-    t.y = Math.min(6, Math.max(0, t.y));
+    t.y = Math.min(45, Math.max(0, t.y));
   });
 
   let lift = 0;

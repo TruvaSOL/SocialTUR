@@ -1,8 +1,8 @@
 # Sociativeworld (working title)
 
-A browser-based social city game: one shared low-poly 3D city where players work, earn a home, decorate it, visit each other and build shared landmarks together.
+A browser stadium: people who get a ticket code on Instagram enter through a web link, make a character and take their seat in a 50,000-seat football stadium. First come, best seats. Chat is the only interaction.
 
-Status: **Stage 3 — arrival (in progress).** Welcome, age gate, character editor and the ferry arrival work for guests; linking an account by e-mail link gives the permanent resident number (schema in `supabase/migrations`). A modern coastal town on an island: 52 plots that fill with three house models as the town grows, four staged shared buildings (harbour, town hall, cafe, park), a ferry pier, forest camp and fishing hut, a free camera, an eye-level view and up to 200 walking characters.
+Status: **stadium.** Ticket codes, seats by arrival order, character editor, chat (presets only under 18). See `docs/DECISIONS.md` #34-#41.
 
 Live build: https://socialtur.pages.dev (Cloudflare Pages, deploys automatically from `main`).
 
@@ -21,7 +21,7 @@ npm run build
 ```
 
 `npm run build` type-checks, builds to `dist/` and fails if the output exceeds the 6 MB first-load budget.
-Add `?stats` to the address (or press the Stats button) for the measurement overlay, and `?quality=1` (1-6) to hold one quality step while measuring.
+Add `?demo` to fill the stands with made-up fans (nothing is sent to the server), `?kod=XXXX-XXXX` to pre-fill a ticket code, `?stats` (or press the Stats button) for the measurement overlay, and `?quality=1` (1-6) to hold one quality step while measuring.
 
 ## Documents
 

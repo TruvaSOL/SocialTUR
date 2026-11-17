@@ -1,3 +1,5 @@
+> **Not (2026-11-17):** Bu belge şehir oyunu için yazıldı. Oyun stadyuma dönüştü (karar #34). Güncel veri modeli: `supabase/migrations/0002_stadium.sql`; güncel yapı: `src/stadium/`.
+
 # Mimari özeti
 
 Sade anlatım: oyun üç parçadan oluşur.

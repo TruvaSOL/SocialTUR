@@ -83,3 +83,36 @@ export function computePose(out: Pose, phase: number, time: number, walk: number
   out.armRZ = -0.12 - wave * (2.35 + Math.sin(time * 11) * 0.32);
   return out;
 }
+
+/**
+ * Sitting in a stadium seat. The body's root is on the seat pan; `up` (0..1) raises both arms,
+ * `stand` (0..1) lifts the body off the seat, as in the Mexican wave. `floor` is how far below
+ * the root the feet would rest when standing, in the character's own units.
+ */
+export function computeSeatedPose(out: Pose, time: number, seed: number, up: number, stand: number, floor: number): Pose {
+  const breath = Math.sin(time * 2.1 + seed * 31);
+  const sit = 1 - stand;
+  // Legs forward over the seat edge when sitting, straight down when standing.
+  out.legL = -1.45 * sit;
+  out.legR = -1.45 * sit;
+  out.liftL = 0;
+  out.liftR = 0;
+  out.pelvisX = 0;
+  out.pelvisY = 0.07 * sit + (RIG.hipY - floor) * stand;
+  out.pelvisRX = 0;
+  out.pelvisRY = 0;
+  out.pelvisRZ = 0;
+  out.torsoRY = 0;
+  out.torsoSY = 1 + breath * 0.012;
+  // Looking around the stadium now and then.
+  out.headRY = Math.sin(time * 0.31 + seed * 17) * 0.35 * Math.max(0, Math.sin(time * 0.13 + seed * 5));
+  out.headRX = -0.06 + Math.sin(time * 0.5 + seed * 3) * 0.04;
+  out.headRZ = Math.sin(time * 0.7 + seed * 11) * 0.04;
+  // Hands on the lap, or both arms up and waving.
+  const shake = Math.sin(time * 10 + seed * 7) * 0.18 * up;
+  out.armLX = -0.75 * (1 - up);
+  out.armLZ = 0.18 + up * 2.5 + shake;
+  out.armRX = -0.75 * (1 - up);
+  out.armRZ = -0.18 - up * 2.5 - shake;
+  return out;
+}
