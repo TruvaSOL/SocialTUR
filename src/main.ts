@@ -23,6 +23,7 @@ import { createFans, waveAt, waveLift } from './stadium/fans';
 import { CAPACITY, SEATS, seatLabel } from './stadium/layout';
 import { FAN_SCALE, FLOOR, NearFans } from './stadium/nearFans';
 import { createPitch } from './stadium/pitch';
+import { NearSeats } from './stadium/nearSeats';
 import { createSeats } from './stadium/seats';
 import { createLedTexture, createScoreboard } from './stadium/screens';
 import { createStructure } from './stadium/structure';
@@ -41,7 +42,9 @@ const params = new URLSearchParams(location.search);
 // ---------------------------------------------------------------- the stadium
 const led = createLedTexture();
 const structure = createStructure(led.texture);
-scene.add(createSurroundings(), structure.group, createSeats(), createPitch(led.texture));
+const seats = createSeats();
+const nearSeats = new NearSeats();
+scene.add(createSurroundings(), structure.group, seats.mesh, nearSeats.group, createPitch(led.texture));
 const board = createScoreboard(structure.screens);
 scene.add(board.group);
 const clouds = createClouds();
@@ -77,6 +80,7 @@ function setFan(row: FanRow): void {
     fans.setCount(row.no);
     latestName = row.name;
   }
+  nearSeats.refresh();
 }
 
 // ---------------------------------------------------------------- interface
@@ -106,9 +110,10 @@ function refreshLabels(): void {
   langButton.textContent = getLocale() === 'tr' ? 'EN' : 'TR';
   const fmt = numberFormat();
   counter.textContent = t('counter', { count: fmt.format(fans.count), capacity: fmt.format(CAPACITY) });
-  viewButton.textContent = t(stage.mode === 'eye' ? 'view.overview' : 'view.mySeat');
+  // The view button names the view it would switch to.
+  viewButton.textContent = t(nextView() === 'first' ? (mySeat === null ? 'view.trySeat' : 'view.first') : nextView() === 'eye' ? 'view.shoulder' : 'view.overview');
   ticketButton.hidden = mode !== 'spectating' || !serverReady;
-  viewButton.hidden = mode !== 'seated';
+  viewButton.hidden = mode === 'joining';
   characterButton.hidden = mode !== 'seated';
   seatChip.hidden = mySeat === null;
   if (mySeat !== null) seatChip.textContent = seatText(mySeat);
@@ -135,6 +140,40 @@ let flight: { from: Vector3; fromTarget: Vector3; to: Vector3; toTarget: Vector3
 function flyTo(to: Vector3, toTarget: Vector3, then: () => void): void {
   controls.enabled = false;
   flight = { from: camera.position.clone(), fromTarget: controls.target.clone(), to, toTarget, t: 0, then };
+}
+
+/** Where the eyes of someone sitting in a seat are, just in front of the face. */
+function eyePoint(index: number): Vector3 {
+  const yaw = SEATS.yaw[index];
+  return new Vector3(
+    SEATS.pos[index * 3] + Math.sin(yaw) * 0.22,
+    SEATS.pos[index * 3 + 1] + 0.92, // sitting tall, so the heads in the row in front stay low in the picture
+    SEATS.pos[index * 3 + 2] + Math.cos(yaw) * 0.22,
+  );
+}
+
+/** The seat the camera sits in: the player's own, or for a visitor the next free one (the seat they would get). */
+function viewSeat(): number {
+  return mySeat ?? Math.min(fans.count, SEATS.count - 1);
+}
+
+/** The views in the order the button steps through them. Visitors have no character to look over the shoulder of. */
+function nextView(): 'overview' | 'first' | 'eye' {
+  if (stage.mode === 'overview') return 'first';
+  if (stage.mode === 'first' && mySeat !== null) return 'eye';
+  return 'overview';
+}
+
+function goFirstPerson(fly: boolean): void {
+  const index = viewSeat();
+  const eye = eyePoint(index);
+  const yaw = SEATS.yaw[index];
+  const settle = () => {
+    stage.enterFirstPerson(eye, yaw);
+    refreshLabels();
+  };
+  if (fly) flyTo(eye, new Vector3(eye.x + Math.sin(yaw) * 30, eye.y - 4, eye.z + Math.cos(yaw) * 30), settle);
+  else settle();
 }
 
 function seatView(index: number): { eye: Vector3; target: Vector3 } {
@@ -173,7 +212,8 @@ function takeSeat(index: number, fly: boolean): void {
   player.root.visible = true;
   setMode('seated');
   chat.setWriter(profile && ageFromBirthYear(profile.birthYear) >= 18 ? 'free' : 'presets', index + 1);
-  goToSeat(fly);
+  nearSeats.refresh();
+  goFirstPerson(fly);
 }
 
 // ---------------------------------------------------------------- joining
@@ -223,21 +263,24 @@ function startJoining(): void {
 langButton.addEventListener('click', () => setLocale(getLocale() === 'tr' ? 'en' : 'tr'));
 ticketButton.addEventListener('click', startJoining);
 viewButton.addEventListener('click', () => {
-  if (stage.mode === 'eye') {
+  if (flight) return;
+  const next = nextView();
+  if (next === 'first') goFirstPerson(true);
+  else if (next === 'eye') goToSeat(false);
+  else {
     stage.setMode('overview');
     refreshLabels();
-  } else {
-    goToSeat(true);
   }
 });
 characterButton.addEventListener('click', () => {
   if (!profile || mode !== 'seated') return;
+  goToSeat(false); // the editor needs to see the character
   onboarding.edit(profile.name, profile.look, (name, look) => {
     profile = { ...profile!, name, look };
     saveProfile(profile);
     stage.setLift(0);
     void saveCharacter(name, look);
-    goToSeat(false);
+    goFirstPerson(false);
   });
 });
 
@@ -265,6 +308,7 @@ function demoFill(count: number): void {
     near.setFan(i, look);
   }
   fans.setCount(count);
+  nearSeats.refresh();
   latestName = null;
   refreshLabels();
 }
@@ -286,7 +330,7 @@ if (params.has('demo')) {
 const quality = new AutoQuality(stage);
 const stats = new StatsOverlay(document.querySelector<HTMLElement>('#stats')!, renderer, quality, () => [
   [t('stats.fans'), numberFormat().format(fans.count)],
-  [t('stats.near'), String(near.drawn)],
+  [t('stats.near'), `${near.drawn} + ${nearSeats.drawn}`],
 ]);
 document.querySelector('#btn-stats')!.addEventListener('click', () => stats.toggle());
 if (params.has('stats')) stats.toggle(true);
@@ -357,6 +401,8 @@ function step(dt: number): void {
   }
 
   // The player's character: in their seat, or standing on the centre spot while being made.
+  // Looking out of their own eyes they do not see themselves.
+  player.root.visible = stage.mode !== 'first' && (mySeat !== null || onboarding.open);
   if (player.root.visible) {
     if (mySeat !== null) {
       const x = SEATS.pos[mySeat * 3];
@@ -376,8 +422,11 @@ function step(dt: number): void {
     }
   }
 
-  if (!flight) controls.update();
+  if (!flight) stage.update();
   near.max = quality.near3d;
+  near.keepOut = stage.mode === 'first' ? 0.88 : 1.05; // in first person only the seat's own occupant steps aside
+  nearSeats.update(camera.position, (i) => i === mySeat || fans.taken(i));
+  seats.setNear(camera.position, nearSeats.radius);
   near.update(time, camera.position, fans.count, 11);
   fans.update(time, near.splitEye, near.radius);
   led.update(dt);
@@ -397,5 +446,5 @@ renderer.setAnimationLoop((now) => {
 
 // Development only: lets a test advance the scene by exact amounts of time.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __dev: { step, stage, fans, near, quality, renderer, demoFill, takeSeat, chat, onboarding } });
+  Object.assign(window, { __dev: { step, stage, fans, near, nearSeats, quality, renderer, demoFill, takeSeat, chat, onboarding, goFirstPerson } });
 }

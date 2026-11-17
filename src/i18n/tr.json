@@ -1,6 +1,6 @@
 {
   "stage.label": "Stadyumu birlikte dolduruyoruz",
-  "hint.camera": "Sürükle: döndür · İki parmak: kaydır ve yakınlaş",
+  "hint.camera": "Sürükle: etrafa bak · İki parmak: yakınlaş",
   "stats.button": "Ölçüm",
   "stats.fps": "Kare hızı",
   "stats.calls": "Çizim çağrısı",
@@ -10,12 +10,11 @@
   "stats.download": "İndirilen",
   "stats.quality": "Kalite",
   "stats.fans": "Taraftar",
-  "stats.near": "3D çizilen",
+  "stats.near": "3D kişi + koltuk",
   "stats.unknown": "bilinmiyor",
   "common.continue": "Devam",
   "common.wait": "Bekle…",
   "counter": "{count} / {capacity}",
-  "view.mySeat": "Koltuğum",
   "view.overview": "Stadyum",
   "editor.button": "Karakter",
   "ticket.button": "Biletini gir",
@@ -94,5 +93,8 @@
   "chat.preset.laugh": "😂",
   "chat.preset.wave": "👋",
   "demo.button": "Önizleme doluluk: {count}",
-  "chat.close": "Sohbeti kapat"
+  "chat.close": "Sohbeti kapat",
+  "view.first": "Gözümden bak",
+  "view.trySeat": "Koltuktan bak",
+  "view.shoulder": "Omuz üstü"
 }

@@ -1,8 +1,11 @@
 import { DirectionalLight, Fog, HemisphereLight, NeutralToneMapping, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-/** 'overview' is the free camera round the stadium; 'eye' sits just behind a character (the player's seat). */
-export type ViewMode = 'overview' | 'eye';
+/**
+ * 'overview' is the free camera round the stadium, 'eye' sits just behind a character,
+ * 'first' looks out of a seated person's own eyes.
+ */
+export type ViewMode = 'overview' | 'eye' | 'first';
 
 export interface Stage {
   renderer: WebGLRenderer;
@@ -15,6 +18,10 @@ export interface Stage {
   readonly mode: ViewMode;
   /** Switches the view. For 'eye', `focus` is the head to follow and `yaw` the way it faces. */
   setMode(mode: ViewMode, focus?: Vector3, yaw?: number): void;
+  /** Looks out from `eye`, facing `yaw`. Drag looks around, pinch or wheel zooms. */
+  enterFirstPerson(eye: Vector3, yaw: number): void;
+  /** Call once a frame: applies whichever camera control is active. */
+  update(): void;
   /** In eye view: puts the camera distance behind a head that faces yaw (add pi to see the face). */
   lookFrom(focus: Vector3, yaw: number, distance?: number): void;
   /** Call every frame with the followed character's head position. Does nothing in overview. */
@@ -72,8 +79,8 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   sun.shadow.camera.near = 150;
   sun.shadow.camera.far = 650;
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.bias = -0.004;
-  sun.shadow.normalBias = 0.3;
+  sun.shadow.bias = -0.009;
+  sun.shadow.normalBias = 0.6;
   scene.add(sun);
 
   const controls = new OrbitControls(camera, canvas);
@@ -85,6 +92,57 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   const savedPosition = new Vector3();
   const savedTarget = new Vector3();
   const delta = new Vector3();
+
+  // First-person look: the camera stays at the eye and turns with the finger.
+  const first = { eye: new Vector3(), yaw: 0, pitch: 0, fov: 68 };
+  const FIRST_FOV = { min: 24, max: 82, start: 68 };
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinch = 0;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (mode !== 'first') return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    canvas.setPointerCapture(e.pointerId);
+    touched = true;
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const p = pointers.get(e.pointerId);
+    if (mode !== 'first' || !p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    if (pointers.size === 1) {
+      // The picture follows the finger; a zoomed-in view turns more slowly.
+      const k = 0.0042 * (first.fov / FIRST_FOV.start);
+      first.yaw += dx * k;
+      first.pitch = Math.min(1.25, Math.max(-1.25, first.pitch + dy * k));
+    } else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch > 0 && dist > 0) first.fov = Math.min(FIRST_FOV.max, Math.max(FIRST_FOV.min, first.fov * (pinch / dist)));
+      pinch = dist;
+    }
+  });
+  const release = (e: PointerEvent) => {
+    pointers.delete(e.pointerId);
+    pinch = 0;
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener(
+    'wheel',
+    (e) => {
+      if (mode !== 'first') return;
+      e.preventDefault();
+      first.fov = Math.min(FIRST_FOV.max, Math.max(FIRST_FOV.min, first.fov + e.deltaY * 0.03));
+    },
+    { passive: false },
+  );
+  const leaveOverview = () => {
+    if (mode !== 'overview') return;
+    savedPosition.copy(camera.position);
+    savedTarget.copy(controls.target);
+  };
 
   const applyLimits = () => {
     const eye = mode === 'eye';
@@ -147,10 +205,11 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
       return mode;
     },
     setMode(next, focus, yaw = 0) {
-      if (next === mode) return;
+      if (next === mode || next === 'first') return;
+      controls.enabled = true;
+      pointers.clear();
       if (next === 'eye' && focus) {
-        savedPosition.copy(camera.position);
-        savedTarget.copy(controls.target);
+        leaveOverview();
         mode = next;
         applyLimits();
         // Start just behind and slightly above the character's shoulder.
@@ -163,6 +222,30 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
         camera.position.copy(savedPosition);
       }
       controls.update();
+    },
+    enterFirstPerson(eye, yaw) {
+      leaveOverview();
+      mode = 'first';
+      controls.enabled = false;
+      controls.autoRotate = false;
+      first.eye.copy(eye);
+      first.yaw = yaw;
+      first.pitch = -0.1;
+      first.fov = FIRST_FOV.start;
+      camera.near = 0.06;
+    },
+    update() {
+      if (mode !== 'first') {
+        controls.update();
+        return;
+      }
+      camera.position.copy(first.eye);
+      // The camera looks down -z by default; a seat's yaw of 0 faces +z.
+      camera.rotation.set(first.pitch, first.yaw + Math.PI, 0, 'YXZ');
+      if (camera.fov !== first.fov) {
+        camera.fov = first.fov;
+        camera.updateProjectionMatrix();
+      }
     },
     lookFrom(focus, yaw, distance = 3.6) {
       if (mode !== 'eye') return;
@@ -184,9 +267,6 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     },
     refreshShadows() {
       renderer.shadowMap.needsUpdate = true;
-  // Filmic response: bright whites roll off softly instead of clipping, colours keep their hue.
-  renderer.toneMapping = NeutralToneMapping;
-  renderer.toneMappingExposure = 1.08;
     },
     setShadows(on) {
       if (sun.castShadow === on) return;

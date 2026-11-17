@@ -157,6 +157,30 @@ export function createStructure(ledTexture: Texture): Structure {
   terraces(m, LOWER);
   band(m, LOWER_BACK_D, LOWER_TOP, VIP_D, LOWER_TOP, C.tread);
 
+  // ---- Aisles: a yellow edge on every step, as safety rules ask and as the eye expects.
+  const aisles = new Set<string>();
+  for (const block of BLOCKS) {
+    const key = `${block.tier}:${block.seg}:${block.f0}`;
+    if (aisles.has(key)) continue;
+    aisles.add(key);
+    const tier = block.tier === 0 ? LOWER : UPPER;
+    let y = tier.y0;
+    for (let r = 0; r < tier.rows; r++) {
+      const o = outline(block.seg, block.f0, tier.d0 + r * ROW_D + 0.07);
+      const tx = -o.nz * 0.5;
+      const tz = o.nx * 0.5;
+      const ex = o.nx * 0.05;
+      const ez = o.nz * 0.05;
+      const top = y + 0.012;
+      m.quad(
+        [o.x - tx - ex, top, o.z - tz - ez], [o.x + tx - ex, top, o.z + tz - ez],
+        [o.x + tx + ex, top, o.z + tz + ez], [o.x - tx + ex, top, o.z - tz + ez],
+        C.craneYellow,
+      );
+      y += tier.rise(r);
+    }
+  }
+
   // ---- Hospitality level: a glass wall with mullions under the upper tier's overhang.
   band(m, VIP_D, LOWER_TOP, VIP_D, SOFFIT_Y, C.glassDark);
   band(m, VIP_D - 0.02, LOWER_TOP + 2.6, VIP_D - 0.02, LOWER_TOP + 2.75, C.steel);

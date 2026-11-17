@@ -1,6 +1,6 @@
 {
   "stage.label": "Filling the stadium together",
-  "hint.camera": "Drag: rotate · Two fingers: pan and zoom",
+  "hint.camera": "Drag: look around · Two fingers: zoom",
   "stats.button": "Stats",
   "stats.fps": "Frame rate",
   "stats.calls": "Draw calls",
@@ -10,12 +10,11 @@
   "stats.download": "Downloaded",
   "stats.quality": "Quality",
   "stats.fans": "Fans",
-  "stats.near": "Drawn in 3D",
+  "stats.near": "3D people + seats",
   "stats.unknown": "unknown",
   "common.continue": "Continue",
   "common.wait": "One moment…",
   "counter": "{count} / {capacity}",
-  "view.mySeat": "My seat",
   "view.overview": "Stadium",
   "editor.button": "Character",
   "ticket.button": "Enter your ticket",
@@ -94,5 +93,8 @@
   "chat.preset.laugh": "😂",
   "chat.preset.wave": "👋",
   "demo.button": "Preview fill: {count}",
-  "chat.close": "Close chat"
+  "chat.close": "Close chat",
+  "view.first": "My eyes",
+  "view.trySeat": "View from a seat",
+  "view.shoulder": "Over the shoulder"
 }

@@ -174,6 +174,8 @@ export interface Fans {
   readonly count: number;
   /** Sets the look of the fan in seat `index` (0-based, best first). Null leaves the seat empty. */
   setFan(index: number, look: Look | null): void;
+  /** True if someone is drawn in this seat. */
+  taken(index: number): boolean;
   /** Makes seats 0..count-1 the taken ones. */
   setCount(count: number): void;
   /** Call each frame. `eye` and `near` say which fans the 3D crowd is drawing instead. */
@@ -250,6 +252,9 @@ export function createFans(sunDirection: Vector3): Fans {
       if (dirty <= 32) lookAttribute.addUpdateRange(o, 4);
       else if (dirty === 33) lookAttribute.clearUpdateRanges();
       lookAttribute.needsUpdate = true;
+    },
+    taken(index) {
+      return index < count && look[index * 4] >= 0;
     },
     setCount(next) {
       count = Math.max(0, Math.min(SEATS.count, next));

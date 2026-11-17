@@ -72,6 +72,8 @@ export class NearFans {
   readonly group = new Group();
   /** Most characters drawn in 3D at once (quality control). */
   max = 120;
+  /** Fans closer to the camera than this are left out. Small in first person, so the neighbours stay. */
+  keepOut = 1.05;
   /** The radius used last frame. */
   radius = 0;
   /** How many were drawn last frame. */
@@ -150,7 +152,7 @@ export class NearFans {
         const dz = pos[i * 3 + 2] - camera.z;
         const d2 = dx * dx + dy * dy + dz * dz;
         // Fans right at the camera are left out, so it never looks out from inside a head.
-        if (d2 < r2 && d2 > 1.1) this.candidates.push({ index: i, d2 });
+        if (d2 < r2 && d2 > this.keepOut * this.keepOut) this.candidates.push({ index: i, d2 });
       }
       let radius = reach;
       if (this.candidates.length > this.max) {
