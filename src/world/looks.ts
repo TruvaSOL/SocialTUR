@@ -50,6 +50,19 @@ export function sanitizeLook(input: unknown): Look {
   return look;
 }
 
+/** Tops in the stadium's colours: blue, navy, white. */
+const TEAM_TOPS = [8, 8, 3, 9, 9, 5];
+
+/**
+ * A random look for someone coming to the stadium: most wear the stadium's colours,
+ * as a real home crowd does. It is only the starting suggestion; the editor offers everything.
+ */
+export function fanLook(rnd: () => number): Look {
+  const look = randomLook(rnd);
+  if (rnd() < 0.68) look.top = TEAM_TOPS[Math.floor(rnd() * TEAM_TOPS.length)];
+  return look;
+}
+
 export function randomLook(rnd: () => number): Look {
   const look = { ...DEFAULT_LOOK };
   for (const field of LOOK_FIELDS) look[field.key] = Math.floor(rnd() * field.count);

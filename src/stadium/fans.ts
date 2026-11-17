@@ -82,6 +82,8 @@ void main() {
   vP = vec2(position.x * 0.7, position.y * 1.4);
   vec3 p = base + right * vP.x + vec3(0.0, vP.y + wave * 0.26 + bob, 0.0);
   vTop = uTops[int(aLook.x)];
+  // Pull the clothes a little towards each other so the crowd reads as one mass, not noise.
+  vTop = mix(vTop, vec3(dot(vTop, vec3(0.3, 0.59, 0.11))), 0.14);
   vSkin = uSkins[int(aLook.y)];
   vHair = uHairs[int(aLook.z)];
   // Fans facing the sun are bright; those with the sun behind them sit in their own stand's shade.
@@ -160,6 +162,7 @@ void main() {
   if (alpha < 0.5) discard;
   color *= vLight * (0.9 + 0.12 * clamp(p.y, 0.0, 1.0));
   gl_FragColor = vec4(color, 1.0);
+  #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
 }

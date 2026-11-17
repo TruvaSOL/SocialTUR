@@ -24,6 +24,7 @@ const LINE = 0.12;
 const LINE_Y = 0.07;
 /** Grass stripes cover the pitch and a little beyond it. */
 const STRIPES = 18;
+const BANDS = 10;
 const STRIPE_X = L + 6;
 const STRIPE_Z = W + 5;
 
@@ -121,8 +122,18 @@ export function createPitch(ledTexture: Texture): Group {
   const stripe = (STRIPE_X * 2) / STRIPES;
   for (let i = 0; i < STRIPES; i++) {
     const x0 = -STRIPE_X + i * stripe;
-    const color = i % 2 ? C.pitchDark : C.pitchLight;
-    m.quad([x0, 0.035, -STRIPE_Z], [x0 + stripe, 0.035, -STRIPE_Z], [x0 + stripe, 0.035, STRIPE_Z], [x0, 0.035, STRIPE_Z], color);
+    // Mown both ways: stripes along the pitch, fainter bands across it.
+    const band = (STRIPE_Z * 2) / BANDS;
+    for (let j = 0; j < BANDS; j++) {
+      const z0 = -STRIPE_Z + j * band;
+      const color = i % 2 ? (j % 2 ? C.pitchDarkB : C.pitchDark) : j % 2 ? C.pitchLightB : C.pitchLight;
+      m.quad([x0, 0.035, z0], [x0 + stripe, 0.035, z0], [x0 + stripe, 0.035, z0 + band], [x0, 0.035, z0 + band], color);
+    }
+  }
+  // A paved apron between the grass and the stands.
+  const inner = ring(-4.5);
+  for (let i = 0; i < edge.length - 1; i++) {
+    m.quad([inner[i].x, 0.03, inner[i].z], [inner[i + 1].x, 0.03, inner[i + 1].z], [edge[i + 1].x, 0.03, edge[i + 1].z], [edge[i].x, 0.03, edge[i].z], C.apron);
   }
 
   const b = new Builder();
@@ -155,6 +166,11 @@ export function createPitch(ledTexture: Texture): Group {
   }
   // The ball on the centre spot.
   b.add(new IcosahedronGeometry(0.16, 1), C.line, { p: [0, 0.16, 0] });
+  // Players' tunnel in the middle of the north stand: a dark mouth and a glazed canopy.
+  b.add(new BoxGeometry(5.4, 2.6, 0.3), C.ledBack, { p: [0, 1.3, -43.9] });
+  for (const x of [-2.8, 2.8]) b.add(new BoxGeometry(0.2, 2.5, 4.6), C.white, { p: [x, 1.25, -41.7] });
+  b.add(new BoxGeometry(6, 0.14, 4.8), C.glassTint, { p: [0, 2.6, -41.7] });
+  b.add(new BoxGeometry(6.1, 0.3, 0.2), C.aegean, { p: [0, 2.6, -39.3] });
   // Team benches on the north side, either side of the halfway line.
   for (const x of [-11, 11]) {
     b.group({ p: [x, 0, -W - 3.2] }, () => {

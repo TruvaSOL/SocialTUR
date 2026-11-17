@@ -3,7 +3,8 @@ import { Builder, flatMaterial, seededRandom } from '../art/builder';
 import { PALETTE as C } from '../art/palette';
 import { buildPalmGeometry, buildTreeGeometry } from '../world/tree';
 import { Mesher, structureMaterial } from './mesher';
-import { FACADE_D, ring } from './structure';
+import { outline } from './layout';
+import { FACADE_D, around, ring } from './structure';
 
 const PLAZA = 34;
 
@@ -42,6 +43,20 @@ export function createSurroundings(): Group {
   plaza.receiveShadow = true;
   group.add(plaza);
 
+  // Reflecting pools on the four sides, each with a pale rim.
+  const pools = new Builder();
+  for (const seg of [0, 2, 4, 6] as const) {
+    const o = outline(seg, 0.5, FACADE_D + 22);
+    const length = seg % 4 === 0 ? 30 : 52;
+    pools.group({ p: [o.x, 0, o.z], r: [0, Math.atan2(o.nx, o.nz), 0] }, () => {
+      pools.add(new BoxGeometry(length + 1.2, 0.3, 7.2), C.white, { p: [0, 0.08, 0] });
+      pools.add(new BoxGeometry(length, 0.3, 6), C.seaShallow, { p: [0, 0.12, 0] });
+    });
+  }
+  const poolMesh = new Mesh(pools.geometry(), flatMaterial);
+  poolMesh.receiveShadow = true;
+  group.add(poolMesh);
+
   // Trees and palms on the lawn around the plaza.
   const trees: { x: number; z: number; s: number; yaw: number }[] = [];
   const palms: typeof trees = [];
@@ -49,6 +64,11 @@ export function createSurroundings(): Group {
   for (const p of outer) {
     if (rnd() < 0.25) continue;
     palms.push({ x: p.x, z: p.z, s: 1.6 + rnd() * 0.4, yaw: rnd() * 6 });
+  }
+  // A formal row of trees on the plaza itself, as an architect would draw it.
+  for (const { seg, f } of around(FACADE_D + 30, 9)) {
+    const o = outline(seg, f, FACADE_D + 30);
+    trees.push({ x: o.x, z: o.z, s: 1.25, yaw: rnd() * 6 });
   }
   for (let i = 0; i < 260; i++) {
     const angle = rnd() * Math.PI * 2;

@@ -190,6 +190,15 @@ export function createStructure(ledTexture: Texture): Structure {
     beam(b, [foot.x, UPPER_TOP + 3, foot.z], top, 0.35, 0.35, C.steel);
   }
 
+  // ---- Pennants round the roof's outer edge, in the stadium's three colours.
+  around(ROOF_OUT_D, 13).forEach(({ seg, f }, i) => {
+    const o = outline(seg, f, ROOF_OUT_D - 0.5);
+    b.add(new BoxGeometry(0.14, 5.2, 0.14), C.white, { p: [o.x, ROOF_OUT_Y + 2.6, o.z] });
+    b.group({ p: [o.x, ROOF_OUT_Y + 4.5, o.z], r: [0, Math.atan2(o.nx, o.nz) + Math.PI / 2 + 0.3, 0] }, () => {
+      b.add(new BoxGeometry(0.05, 1.15, 1.9), [C.aegean, C.white, C.coral][i % 3], { p: [0, 0, 1.0] });
+    });
+  });
+
   // ---- Facade: a plinth with entrances, then white fins over dark glass up to the roof.
   band(m, FACADE_D, 0, FACADE_D, FACADE_BASE_Y, C.concrete);
   band(m, FACADE_D + 0.05, FACADE_BASE_Y - 0.6, FACADE_D + 0.05, FACADE_BASE_Y, C.aegean);

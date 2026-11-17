@@ -2,7 +2,7 @@ import { GAME } from '../config/game';
 import { NAME_MAX, cleanName, isOldEnough } from '../game/profile';
 import type { RedeemResult, TicketCheck } from '../game/server';
 import { type TextKey, t } from '../i18n';
-import { DEFAULT_LOOK, LOOK_FIELDS, type Look, randomLook } from '../world/looks';
+import { DEFAULT_LOOK, LOOK_FIELDS, type Look, fanLook, randomLook } from '../world/looks';
 
 export interface NewFan {
   code: string;
@@ -70,7 +70,7 @@ export class Onboarding {
   startNew(code: string): void {
     this.onSave = null;
     this.code = formatCode(code);
-    this.look = randomLook(Math.random);
+    this.look = fanLook(Math.random);
     this.name = '';
     this.go('ticket');
   }

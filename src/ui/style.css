@@ -11,7 +11,7 @@ body {
   height: 100%;
   overflow: hidden;
   /* The sky is a CSS gradient behind a transparent canvas: free to draw. */
-  background: linear-gradient(#5aa7e6 0%, #9dcdf0 38%, #dfeaf0 62%, #e8efe9 100%);
+  background: linear-gradient(#3d8bd9 0%, #7fb9ec 32%, #d9e4e4 56%, #e8e6dc 100%);
   overscroll-behavior: none;
 }
 
@@ -506,4 +506,12 @@ body {
   #ui.chat-open .actions {
     display: none;
   }
+}
+
+/* A soft darkening towards the corners, as a camera lens gives. Costs nothing to draw. */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(16, 30, 62, 0.3) 100%);
 }

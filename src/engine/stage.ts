@@ -1,4 +1,4 @@
-import { DirectionalLight, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
+import { DirectionalLight, Fog, HemisphereLight, NeutralToneMapping, PCFSoftShadowMap, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /** 'overview' is the free camera round the stadium; 'eye' sits just behind a character (the player's seat). */
@@ -28,10 +28,10 @@ export interface Stage {
 }
 
 const VIEW_DIR = new Vector3(0.5, 0.62, 0.6).normalize();
-/** Towards the sun: high in the south-west, so one stand is in its own shade and the other bright. */
-export const SUN_DIR = new Vector3(-0.42, 0.78, 0.46).normalize();
+/** Towards the sun: a late-afternoon sun in the south-west, so one stand is in its own shade and the other bright. */
+export const SUN_DIR = new Vector3(-0.5, 0.64, 0.58).normalize();
 /** The sky's colour at the horizon; the haze fades distant things into it. */
-export const HORIZON = 0xdfeaf0;
+export const HORIZON = 0xe8e6dc;
 /** Radius that must fit the screen's height, and its width, when the stadium is first shown. */
 const FIT_HEIGHT = 112;
 const FIT_WIDTH = 118;
@@ -51,14 +51,17 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   // Everything that casts a shadow stands still, so the shadow is drawn once, not every frame.
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
+  // Filmic response: bright whites roll off softly instead of clipping, colours keep their hue.
+  renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = 1.08;
 
   const scene = new Scene();
   scene.fog = new Fog(HORIZON, 420, 2400);
   const camera = new PerspectiveCamera(OVERVIEW_FOV, 1, 0.25, 3200);
 
   // Cheap lighting: sky/ground ambient plus one warm sun with the scene's only shadow.
-  scene.add(new HemisphereLight(0xd2e9ff, 0xa89c86, 1.1));
-  const sun = new DirectionalLight(0xfff0d8, 2.6);
+  scene.add(new HemisphereLight(0xc2dbff, 0x9db389, 1.2));
+  const sun = new DirectionalLight(0xffe2b6, 3.2);
   sun.position.copy(SUN_DIR).multiplyScalar(400);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -69,7 +72,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   sun.shadow.camera.near = 150;
   sun.shadow.camera.far = 650;
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.bias = -0.0012;
+  sun.shadow.bias = -0.004;
   sun.shadow.normalBias = 0.3;
   scene.add(sun);
 
@@ -181,6 +184,9 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     },
     refreshShadows() {
       renderer.shadowMap.needsUpdate = true;
+  // Filmic response: bright whites roll off softly instead of clipping, colours keep their hue.
+  renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = 1.08;
     },
     setShadows(on) {
       if (sun.castShadow === on) return;

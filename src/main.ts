@@ -31,7 +31,7 @@ import { Chat } from './ui/chat';
 import { Onboarding } from './ui/onboarding';
 import { Character } from './world/character';
 import { createClouds } from './world/clouds';
-import { type Look, randomLook } from './world/looks';
+import { type Look, fanLook } from './world/looks';
 import { computePose, computeSeatedPose, createPose } from './world/pose';
 
 const stage = createStage(document.querySelector<HTMLCanvasElement>('#scene')!);
@@ -260,7 +260,7 @@ let demoStep = 0;
 function demoFill(count: number): void {
   const rnd = seededRandom(2024);
   for (let i = 0; i < SEATS.count; i++) {
-    const look: Look | null = i < count ? randomLook(rnd) : null;
+    const look: Look | null = i < count ? fanLook(rnd) : null;
     fans.setFan(i, look);
     near.setFan(i, look);
   }
