@@ -1,4 +1,4 @@
--- STATUS: written 2026-11-17, NOT YET APPLIED to the project (dashboard session expired). Update this line once applied.
+-- Applied to the project on 2026-11-17 and tested there (rolled back), see docs/DECISIONS.md #46.
 -- Tickets handed out automatically to people who comment on Instagram.
 --
 -- The messaging tool (ManyChat or our own Meta app) calls issue_ticket() once per commenter
