@@ -96,5 +96,14 @@
   "chat.close": "Sohbeti kapat",
   "view.first": "Gözümden bak",
   "view.trySeat": "Koltuktan bak",
-  "view.shoulder": "Omuz üstü"
+  "view.shoulder": "Omuz üstü",
+  "ad.ready": "Ekran kaydını başlat",
+  "ad.seats": "50.000 koltuk",
+  "ad.empty": "Hepsi boş",
+  "ad.first": "İlk gelen en iyi koltuğu alır",
+  "ad.best": "Orta saha · İlk sıra",
+  "ad.fill": "Stadyumu birlikte dolduruyoruz",
+  "ad.yours": "Koltuğun da numaran da senin",
+  "ad.free": "Bilet ücretsiz",
+  "ad.cta": "Takip et · Yoruma “STADYUM” yaz"
 }

@@ -515,3 +515,78 @@ body {
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(16, 30, 62, 0.3) 100%);
 }
+
+/* Advert mode: no controls, only the captions. Kept clear of where Instagram puts its own buttons. */
+#ui.ad > :not(.ad-overlay) {
+  display: none;
+}
+
+.ad-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.ad-overlay[hidden] {
+  display: none;
+}
+
+.ad-caption {
+  position: absolute;
+  inset: auto 6% 24% 6%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(13, 27, 62, 0.55), 0 6px 24px rgba(13, 27, 62, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.ad-caption strong {
+  font-size: clamp(26px, 8.4vw, 54px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.ad-caption span {
+  font-size: clamp(18px, 5.6vw, 36px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #ffd166;
+}
+
+.ad-caption span:empty {
+  display: none;
+}
+
+.ad-caption.in {
+  animation: ad-in 0.45s cubic-bezier(0.2, 0.9, 0.2, 1.1);
+}
+
+@keyframes ad-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+}
+
+.ad-countdown {
+  position: absolute;
+  inset: 12% auto auto 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(13, 27, 62, 0.6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.ad-countdown[hidden],
+.ad-caption[hidden] {
+  display: none;
+}

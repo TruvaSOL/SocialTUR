@@ -1,4 +1,5 @@
 import { Timer, Vector3 } from 'three';
+import { type Ad, createAd } from './ad/director';
 import { seededRandom } from './art/builder';
 import { GAME } from './config/game';
 import { AutoQuality } from './engine/quality';
@@ -326,6 +327,40 @@ if (params.has('demo')) {
   }
 }
 
+// ---------------------------------------------------------------- advert mode (?reklam)
+// Plays a fixed clip for screen recording. Uses the preview crowd; nothing is sent to the server.
+let ad: Ad | null = null;
+if (params.has('reklam')) {
+  demoFill(SEATS.count);
+  fans.setCount(0);
+  ui.classList.add('ad');
+  controls.enabled = false;
+  controls.autoRotate = false;
+  camera.near = 0.3;
+  camera.updateProjectionMatrix();
+  let boardAt = 0;
+  ad = createAd(
+    {
+      camera,
+      capacity: CAPACITY,
+      eyePoint,
+      screen: structure.screens[0],
+      setCount(count) {
+        fans.setCount(count);
+        near.refresh();
+        nearSeats.refresh();
+        // Redrawing the big screen is not free; a few times a second is plenty while the stands fill.
+        const now = performance.now();
+        if (count === 0 || count === CAPACITY || now - boardAt > 120) {
+          boardAt = now;
+          board.set(count, CAPACITY, null);
+        }
+      },
+    },
+    document.querySelector<HTMLElement>('#ad')!,
+  );
+}
+
 // ---------------------------------------------------------------- measuring
 const quality = new AutoQuality(stage);
 const stats = new StatsOverlay(document.querySelector<HTMLElement>('#stats')!, renderer, quality, () => [
@@ -342,7 +377,7 @@ controls.addEventListener('start', () => hint.classList.add('gone'));
 // ---------------------------------------------------------------- start-up
 async function boot(): Promise<void> {
   refreshLabels();
-  if (!serverReady || params.has('demo')) return;
+  if (!serverReady || params.has('demo') || params.has('reklam')) return;
 
   const userId = await existingUser();
   if (userId) {
@@ -422,9 +457,11 @@ function step(dt: number): void {
     }
   }
 
-  if (!flight) stage.update();
+  if (ad) ad.update(dt);
+  else if (!flight) stage.update();
   near.max = quality.near3d;
-  near.keepOut = stage.mode === 'first' ? 0.88 : 1.05; // in first person only the seat's own occupant steps aside
+  // Looking out of a seat, only that seat's own occupant steps aside; the neighbours stay.
+  near.keepOut = ad || stage.mode === 'first' ? 1.0 : 1.05;
   nearSeats.update(camera.position, (i) => i === mySeat || fans.taken(i));
   seats.setNear(camera.position, nearSeats.radius);
   near.update(time, camera.position, fans.count, 11);
@@ -446,5 +483,5 @@ renderer.setAnimationLoop((now) => {
 
 // Development only: lets a test advance the scene by exact amounts of time.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __dev: { step, stage, fans, near, nearSeats, quality, renderer, demoFill, takeSeat, chat, onboarding, goFirstPerson } });
+  Object.assign(window, { __dev: { step, stage, fans, near, nearSeats, ad, quality, renderer, demoFill, takeSeat, chat, onboarding, goFirstPerson } });
 }

@@ -96,5 +96,14 @@
   "chat.close": "Close chat",
   "view.first": "My eyes",
   "view.trySeat": "View from a seat",
-  "view.shoulder": "Over the shoulder"
+  "view.shoulder": "Over the shoulder",
+  "ad.ready": "Start screen recording",
+  "ad.seats": "50,000 seats",
+  "ad.empty": "All empty",
+  "ad.first": "First come, best seat",
+  "ad.best": "Centre line · Front row",
+  "ad.fill": "Filling the stadium together",
+  "ad.yours": "Your seat and your number, for good",
+  "ad.free": "The ticket is free",
+  "ad.cta": "Follow · Comment “STADIUM”"
 }
