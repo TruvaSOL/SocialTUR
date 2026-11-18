@@ -100,10 +100,10 @@
   "ad.ready": "Ekran kaydını başlat",
   "ad.seats": "50.000 koltuk",
   "ad.empty": "Hepsi boş",
-  "ad.first": "İlk gelen en iyi koltuğu alır",
-  "ad.best": "Orta saha · İlk sıra",
-  "ad.fill": "Stadyumu birlikte dolduruyoruz",
-  "ad.yours": "Koltuğun da numaran da senin",
-  "ad.free": "Bilet ücretsiz",
+  "ad.first": "İlk gelen en iyi yeri kapar",
+  "ad.best": "En ön sıra · Tam orta saha",
+  "ad.fill": "Karakterini yap, yerine otur",
+  "ad.yours": "Koltuk senin, numara senin",
+  "ad.free": "Bilet bedava",
   "ad.cta": "Takip et · Yoruma “STADYUM” yaz"
 }

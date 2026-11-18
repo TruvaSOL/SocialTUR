@@ -545,6 +545,16 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* Each line sits on its own dark plate, so it stays readable over the busy stands and LED boards. */
+.ad-caption strong,
+.ad-caption span {
+  padding: 0.12em 0.45em 0.16em;
+  border-radius: 0.28em;
+  background: rgba(13, 27, 62, 0.88);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .ad-caption strong {
   font-size: clamp(26px, 8.4vw, 54px);
   font-weight: 900;

@@ -101,9 +101,9 @@
   "ad.seats": "50,000 seats",
   "ad.empty": "All empty",
   "ad.first": "First come, best seat",
-  "ad.best": "Centre line · Front row",
-  "ad.fill": "Filling the stadium together",
-  "ad.yours": "Your seat and your number, for good",
+  "ad.best": "Front row · Centre line",
+  "ad.fill": "Make your character, take your seat",
+  "ad.yours": "Your seat, your number",
   "ad.free": "The ticket is free",
   "ad.cta": "Follow · Comment “STADIUM”"
 }
