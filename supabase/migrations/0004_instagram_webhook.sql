@@ -28,7 +28,8 @@ insert into public.private_config (key, value) values
   ('ig_verify_token', replace(gen_random_uuid()::text, '-', '')),
   ('ig_app_secret', ''),
   ('ig_token', ''),
-  ('ig_token_refreshed_at', '')
+  ('ig_token_refreshed_at', ''),
+  ('ig_last_probe', '')
 on conflict (key) do nothing;
 
 -- Switches and texts, changed in the dashboard without touching code:

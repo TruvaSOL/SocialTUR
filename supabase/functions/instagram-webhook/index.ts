@@ -59,7 +59,7 @@ let cached: { at: number; config: Config } | null = null;
 
 async function config(): Promise<Config> {
   if (cached && Date.now() - cached.at < 60_000) return cached.config;
-  const res = await rest('private_config?select=key,value&key=in.(ig_verify_token,ig_app_secret,ig_token,ig_token_refreshed_at)');
+  const res = await rest('private_config?select=key,value&key=in.(ig_verify_token,ig_app_secret,ig_token,ig_token_refreshed_at,ig_last_probe)');
   if (!res.ok) throw new Error(`private_config: ${res.status}`);
   const rows = (await res.json()) as { key: string; value: string }[];
   const result: Config = {};
@@ -268,6 +268,32 @@ async function handle(comment: Comment, live: boolean): Promise<void> {
   if (error) console.warn('private reply failed', error);
 }
 
+/**
+ * Read-only check that the token works for each permission (Meta's App Review asks for recent
+ * successful calls): reads our account's username and one comment id of the target post.
+ * Answers only true/false, never data; runs at most once an hour.
+ */
+async function probe(): Promise<Response> {
+  const c = await config();
+  const last = Date.parse(c.ig_last_probe ?? '');
+  if (Number.isFinite(last) && Date.now() - last < 3_600_000) return Response.json({ ok: false, error: 'too_soon' });
+  await setConfig('ig_last_probe', new Date().toISOString());
+  const s = await switches();
+  const access = await token();
+  if (!access || !s.account) return Response.json({ ok: false, error: 'not_configured' });
+  const call = async (path: string) => {
+    try {
+      const res = await fetch(`${GRAPH}/${API_VERSION}/${path}`, { headers: { Authorization: `Bearer ${access}` } });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+  const basic = await call(`${s.account}?fields=id,username`);
+  const comments = s.media ? await call(`${s.media}/comments?fields=id&limit=1`) : false;
+  return Response.json({ ok: true, instagram_basic: basic, instagram_manage_comments: comments });
+}
+
 // ---------------------------------------------------------------- entry point
 
 export async function serve(req: Request): Promise<Response> {
@@ -286,6 +312,7 @@ export async function serve(req: Request): Promise<Response> {
         token_set: !!c.ig_token,
       });
     }
+    if (url.searchParams.has('probe')) return probe();
     const c = await config();
     const ok =
       url.searchParams.get('hub.mode') === 'subscribe' &&
