@@ -2,52 +2,66 @@
 
 Amaç: gönderinin altına "stadyum" yazan kişiye, içinde bilet kodu hazır bir bağlantı kendiliğinden gitsin. Kişi bağlantıya dokunur, karakterini yapar, koltuğuna geçer. Kod yazmaz; sen elle bir şey göndermezsin.
 
-## Parçalar
+Ücretli bir mesaj aracı kullanmıyoruz (karar #48): kendi Meta uygulamamız ve Supabase'deki küçük bir fonksiyon bu işi yapıyor.
 
-1. **Instagram hesabı** işletme ya da içerik üretici hesabı olmalı (Ayarlar → Hesap türü; ücretsiz).
-2. **Mesaj aracı**: yorumu görüp özel mesajı gönderen servis. ManyChat ya da benzeri, Meta onaylı bir araç.
-3. **Bilet ucu**: mesaj aracının çağırdığı adres. Instagram hesabı başına tek bilet üretir ve bağlantıyı döndürür. Supabase'de `issue_ticket` adıyla durur (bkz. `supabase/migrations/0003_instagram_tickets.sql`).
+## Nasıl çalışıyor
 
-## Bilet ucu
+1. Biri gönderine yorum yazar.
+2. Meta bu yorumu bizim adrese bildirir: `https://ncbmkepmvbkofcpajadc.supabase.co/functions/v1/instagram-webhook`
+3. Fonksiyon bildirimin gerçekten Meta'dan geldiğini imzadan anlar, veritabanına sorar:
+   - Yorumda anahtar kelime var mı (`settings` → `ig_keywords`: "stadyum", "stadium")?
+   - Bu yoruma daha önce cevap verildi mi? (Meta yorum başına tek mesaja izin verir; aynı bildirim iki kez gelirse ikinci mesaj gitmez.)
+   - Bu kişinin bileti var mı? Yoksa yeni bilet üretilir (`issue_ticket`).
+4. Fonksiyon yoruma özel mesajla cevap verir. Metinler `settings` tablosunda, kod değiştirmeden düzenlenebilir:
+   - `ig_reply_new`: yeni bilet ({url} yerine bağlantı gelir)
+   - `ig_reply_used`: zaten stadyumda olan kişi
+   - `ig_reply_full`: stadyum dolu
+5. Her yorumun sonucu `ig_comments` tablosunda durur: `sent` (gitti), `skipped` (anahtar kelime yok), `failed` (gitmedi, `error` sütununda nedeni).
 
-| | |
-|---|---|
-| Adres | `https://ncbmkepmvbkofcpajadc.supabase.co/rest/v1/rpc/issue_ticket` |
-| Yöntem | POST |
-| Başlık | `apikey: <herkese açık anahtar>` ve `Content-Type: application/json` |
-| Gövde | `{"p_secret": "<gizli anahtar>", "p_ig_user_id": "<kişinin Instagram kimliği>", "p_ig_username": "<kullanıcı adı>"}` |
-| Cevap | `{"ok": true, "code": "ABCD-EFGH", "url": "https://socialtur.pages.dev/?kod=ABCD-EFGH", "used": false, "new": true}` |
+Parçalar: `supabase/migrations/0004_instagram_webhook.sql` ve `supabase/functions/instagram-webhook/index.ts`.
 
-- **Herkese açık anahtar:** Supabase → Project Settings → API Keys → Publishable key.
-- **Gizli anahtar:** Supabase → Table Editor → `private_config` tablosu → `ticket_issuer` satırı. Veritabanında üretildi; hiçbir sohbette ya da depoda geçmez. Yalnızca mesaj aracına yapıştırılır.
-- Aynı kişi ikinci kez yorum yazarsa aynı bağlantı döner (`"new": false`). Bileti kullanmışsa `"used": true` gelir.
-- Stadyum dolduysa `{"ok": false, "error": "full"}`, gizli anahtar yanlışsa `{"ok": false, "error": "forbidden"}` döner.
+## Gizli değerler
 
-## ManyChat kurulumu (özet)
+Hepsi Supabase → Table Editor → `private_config` tablosunda durur; hiçbiri sohbete ya da depoya yazılmaz.
 
-Menü adları değişebilir; mantık aynıdır.
+| Satır | Ne | Nereden |
+|---|---|---|
+| `ig_verify_token` | Meta'nın adresimizi doğrulaması için parola | Veritabanında üretildi. Buradan kopyalayıp Meta panelindeki "Verify token" alanına yapıştırırsın. |
+| `ig_app_secret` | Bildirimlerin Meta'dan geldiğini kanıtlayan anahtar | Meta panelinden kopyalayıp buraya yapıştırırsın. |
+| `ig_token` | Mesaj gönderme izni | Meta panelinde "Generate token" ile üretip buraya yapıştırırsın. 60 gün geçerli; fonksiyon her 7 günde kendisi yeniler. |
 
-1. ManyChat'te Instagram hesabını bağla.
-2. Yeni bir otomasyon: tetikleyici **"Kullanıcı gönderiye yorum yazar"**, anahtar kelime `stadyum`.
-3. İlk adım: **External Request** (dış istek). Yukarıdaki adresi, başlıkları ve gövdeyi gir. Gövdede kişinin kimliği için ManyChat'in "Instagram kullanıcı kimliği", kullanıcı adı için "Instagram kullanıcı adı" alanlarını seç.
-4. Cevaptaki `url` alanını bir özel alana (örneğin `bilet_linki`) eşle.
-5. Sonraki adım: kişiye mesaj gönder. Metin:
+## Kurulum: Meta uygulaması (senin adımların)
 
-   > Biletin hazır! 🎟️
-   > Buradan gir: {{bilet_linki}}
-   > Karakterini yap ve yerine geç. İlk gelen en iyi koltuğu alır!
+Menü adları değişebilir; mantık aynıdır. Takıldığın ekranın görüntüsünü at, birlikte geçeriz.
 
-6. İstersen yoruma herkese açık kısa bir yanıt da ekle: "Biletin mesaj kutunda! 🎟️"
+1. **Instagram hesabı** işletme ya da içerik üretici hesabı olmalı (Ayarlar → Hesap türü; ücretsiz). Facebook sayfası gerekmez.
+2. **developers.facebook.com**'da geliştirici hesabı aç (Facebook hesabınla giriş).
+3. **Uygulama oluştur** → kullanım amacı olarak Instagram'ı seç ("Instagram API" / "Instagram ile giriş").
+4. Uygulamada **Instagram → API setup with Instagram login**:
+   - "Generate access tokens" kısmında kendi Instagram hesabını ekle ve token üret → `private_config` → `ig_token` satırına yapıştır.
+   - Aynı sayfadaki **Instagram app secret**'ı kopyala → `ig_app_secret` satırına yapıştır.
+   - **Webhooks**: Callback URL olarak yukarıdaki adresi, Verify token olarak `ig_verify_token` değerini gir → "Verify and save". Sonra **comments** alanına abone ol.
+5. İzinler: `instagram_business_basic`, `instagram_business_manage_comments`, `instagram_business_manage_messages`.
+6. **Deneme**: uygulama geliştirme aşamasındayken yalnızca uygulamada rolü olan hesaplar çalışır. İkinci bir Instagram hesabını uygulamaya "Instagram Tester" olarak ekle, o hesapla gönderine "stadyum" yaz, mesaj geliyor mu bak.
+7. **Herkese açmak**: uygulamayı "Live" yap, yukarıdaki izinler için **Advanced Access** iste (App Review), ve **Business Verification** (işletme doğrulaması) yap. Meta incelemesi günler ya da haftalar sürebilir; bir ekran kaydı ve gizlilik politikası adresi ister.
 
-Dış istek özelliği ManyChat'in ücretli planındadır.
+## Kurulum: Supabase (benim adımlarım, sen giriş yapınca)
+
+1. `0004_instagram_webhook.sql`'i SQL Editor'da çalıştır, geri alınan denemeyle sına.
+2. Edge Functions → yeni fonksiyon `instagram-webhook`, kodu yapıştır, **"Verify JWT" kapalı** (Meta Supabase girişi göndermez; kimliği imzadan anlıyoruz).
 
 ## Meta'nın sınırları
 
-- Yorum başına tek özel mesaj gönderilebilir; kişi cevap yazmazsa ikinci mesaj atılamaz.
+- Yorum başına tek özel mesaj; kişi cevap yazmazsa ikinci mesaj atılamaz.
+- Mesaj yorumdan sonraki 7 gün içinde gönderilebilir.
+- Hesap başına saatte en çok 750 özel yanıt. Çok hızlı yayılırsa bazı mesajlar gecikir ya da gitmez (`ig_comments`'te `failed` görünür).
 - Seni takip etmeyen kişiye giden mesaj "İstekler" klasörüne düşer.
-- Mesaj, yorumdan sonraki 7 gün içinde gönderilebilir.
 - Bir kişinin seni takip edip etmediği sorgulanamaz; yorum yazan herkes bilet alır.
 
 ## Koltuk ve Instagram adı
 
 Bilet bir Instagram hesabı için üretildiğinden, kişi koltuğa geçtiğinde Instagram kullanıcı adı profiline kaydedilir. Bu ad şimdilik hiçbir yerde gösterilmez; yalnızca veritabanında durur.
+
+## Elle bilet ucu (yedek)
+
+`issue_ticket` hâlâ dışarıdan çağrılabilir (`/rest/v1/rpc/issue_ticket`, gizli anahtar `private_config` → `ticket_issuer`). Başka bir araçla bilet dağıtmak gerekirse kullanılır.
