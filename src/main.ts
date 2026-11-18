@@ -16,6 +16,7 @@ import {
   redeem,
   saveCharacter,
   sendChat,
+  reportChat,
   serverReady,
   subscribe,
 } from './game/server';
@@ -285,7 +286,7 @@ characterButton.addEventListener('click', () => {
   });
 });
 
-const chat = new Chat(document.querySelector<HTMLElement>('#chat')!, document.querySelector<HTMLButtonElement>('#btn-chat')!, sendChat);
+const chat = new Chat(document.querySelector<HTMLElement>('#chat')!, document.querySelector<HTMLButtonElement>('#btn-chat')!, sendChat, reportChat);
 
 onLocaleChange(() => {
   refreshLabels();
@@ -401,6 +402,7 @@ async function boot(): Promise<void> {
       refreshLabels();
     },
     (message) => chat.add([message]),
+    (id) => chat.remove(id),
   );
   void loadChat().then((messages) => chat.add(messages));
   await loadFans((rows) => {

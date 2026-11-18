@@ -1,4 +1,4 @@
-import type { ChatMessage, SendResult } from '../game/server';
+import type { ChatMessage, ReportResult, SendResult } from '../game/server';
 import { type TextKey, t } from '../i18n';
 
 /** Ready-made messages, the same list the server accepts. Under-18s can only send these. */
@@ -29,11 +29,14 @@ export class Chat {
   /** 'none' (spectator), 'presets' (under 18) or 'free' (adult). */
   private canWrite: 'none' | 'presets' | 'free' = 'none';
   private ownNo: number | null = null;
+  /** Messages this visitor already reported (one report each). */
+  private reported = new Set<number>();
 
   constructor(
     private panel: HTMLElement,
     private button: HTMLButtonElement,
     private send: (text: string | null, preset: string | null) => Promise<SendResult>,
+    private report: (id: number) => Promise<ReportResult>,
   ) {
     const header = el('div', 'chat-header');
     this.title = el('strong');
@@ -89,6 +92,14 @@ export class Chat {
     this.renderButton();
   }
 
+  /** A message taken down (by reports or by the owner) disappears for everyone. */
+  remove(id: number): void {
+    const i = this.messages.findIndex((m) => m.id === id);
+    if (i < 0) return;
+    this.messages.splice(i, 1);
+    this.renderList();
+  }
+
   /** Redraw in the current language. */
   refresh(): void {
     this.render();
@@ -115,6 +126,16 @@ export class Chat {
       ...this.messages.map((m) => {
         const row = el('p', m.no === this.ownNo ? 'chat-line own' : 'chat-line');
         row.append(el('strong', '', m.name), el('span', 'chat-no', `#${m.no}`), document.createTextNode(' ' + this.text(m)));
+        // Fans can report other people's typed messages (ready-made phrases cannot be rude).
+        if (this.canWrite !== 'none' && m.no !== this.ownNo && !m.preset) {
+          const flag = el('button', 'chat-report', this.reported.has(m.id) ? '✓' : '⚑');
+          flag.type = 'button';
+          flag.title = t('chat.report');
+          flag.setAttribute('aria-label', t('chat.report'));
+          flag.disabled = this.reported.has(m.id);
+          flag.addEventListener('click', () => void this.flag(m.id));
+          row.append(flag);
+        }
         return row;
       }),
     );
@@ -157,6 +178,20 @@ export class Chat {
     });
     row.append(input, go);
     this.composer.append(row);
+  }
+
+  private async flag(id: number): Promise<void> {
+    if (this.reported.has(id)) return;
+    if (!window.confirm(t('chat.reportConfirm'))) return;
+    const result = await this.report(id);
+    if (result === 'offline') {
+      this.status.textContent = t('chat.error.offline');
+      return;
+    }
+    this.reported.add(id);
+    if (result === 'removed' || result === 'gone') this.remove(id);
+    else this.renderList();
+    this.status.textContent = t('chat.reported');
   }
 
   private async submit(text: string | null, preset: string | null): Promise<void> {

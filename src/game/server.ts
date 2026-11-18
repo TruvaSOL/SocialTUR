@@ -140,7 +140,8 @@ export async function loadChat(limit = 60): Promise<ChatMessage[]> {
   return error ? [] : data.map(toMessage).reverse();
 }
 
-export type SendResult = 'ok' | 'not_a_fan' | 'too_fast' | 'empty' | 'not_allowed' | 'offline';
+/** 'blocked': the text has a word from the server's list and was not posted; 'muted': too many of those lately. */
+export type SendResult = 'ok' | 'not_a_fan' | 'too_fast' | 'empty' | 'not_allowed' | 'blocked' | 'muted' | 'offline';
 
 /** Sends free text (adults) or a ready-made phrase (everyone). */
 export async function sendChat(text: string | null, preset: string | null): Promise<SendResult> {
@@ -149,13 +150,31 @@ export async function sendChat(text: string | null, preset: string | null): Prom
   return error || typeof data !== 'string' ? 'offline' : (data as SendResult);
 }
 
-/** Live updates: new and changed fans, and new chat messages. */
-export function subscribe(onFan: (fan: FanRow) => void, onMessage: (message: ChatMessage) => void): void {
+/** 'removed': this report was the one that took the message down. */
+export type ReportResult = 'ok' | 'removed' | 'gone' | 'self' | 'not_a_fan' | 'offline';
+
+/** Reports a message; enough reports from different fans take it down for everyone. */
+export async function reportChat(id: number): Promise<ReportResult> {
+  if (!client) return 'offline';
+  const { data, error } = await client.rpc('report_message', { p_id: id });
+  return error || typeof data !== 'string' ? 'offline' : (data as ReportResult);
+}
+
+/** Live updates: new and changed fans, new chat messages and removed ones. */
+export function subscribe(
+  onFan: (fan: FanRow) => void,
+  onMessage: (message: ChatMessage) => void,
+  onRemoved: (id: number) => void,
+): void {
   if (!client) return;
   client
     .channel('stadium')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fans' }, (p) => onFan(toFan(p.new as never)))
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fans' }, (p) => onFan(toFan(p.new as never)))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (p) => onMessage(toMessage(p.new as never)))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages' }, (p) => {
+      const id = (p.old as { id?: number }).id;
+      if (typeof id === 'number') onRemoved(id);
+    })
     .subscribe();
 }
