@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Bilet ver — Garip Futbol Stadyumu</title>
+    <link rel="stylesheet" href="/src/admin/biletVer.css" />
+  </head>
+  <body>
+    <!-- Owner-only page: hands out personal ticket links for people who commented TRİBÜN,
+         while the automatic Instagram DM waits for Meta's approval. Needs the ticket_issuer secret. -->
+    <main>
+      <h1>Bilet ver</h1>
+      <p class="lead">Yorumlarda <b>TRİBÜN</b> yazanların kullanıcı adlarını yapıştır; her biri için kişiye özel bilet bağlantısı ve DM'e yapıştırılacak hazır mesaj çıkar.</p>
+
+      <section id="key-box" class="card">
+        <label for="secret">Gizli anahtar <small>(Supabase → private_config → <code>ticket_issuer</code>)</small></label>
+        <div class="row">
+          <input id="secret" type="password" autocomplete="off" spellcheck="false" placeholder="Anahtarı yapıştır" />
+          <button id="save-key" type="button">Kaydet</button>
+        </div>
+        <p class="hint">Yalnız bu cihazda saklanır. Başka bir yere yazma, kimseyle paylaşma.</p>
+      </section>
+
+      <section id="work" class="card" hidden>
+        <label for="names">Instagram kullanıcı adları <small>(her satıra bir tane, @ olsa da olur)</small></label>
+        <textarea id="names" rows="6" spellcheck="false" placeholder="ornek_kullanici&#10;@baska.biri"></textarea>
+        <div class="row">
+          <button id="make" type="button" class="primary">Bilet bağlantılarını oluştur</button>
+          <button id="forget" type="button" class="ghost">Anahtarı bu cihazdan sil</button>
+        </div>
+        <p id="status" class="hint" role="status"></p>
+        <ol id="results"></ol>
+      </section>
+    </main>
+    <script type="module" src="/src/admin/biletVer.ts"></script>
+  </body>
+</html>

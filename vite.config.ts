@@ -5,5 +5,10 @@ export default defineConfig({
   base: './',
   // The dev server listens on this machine only; it is never exposed to the network.
   server: { port: 5173, strictPort: true },
-  build: { target: 'es2020', chunkSizeWarningLimit: 900 },
+  build: {
+    target: 'es2020',
+    chunkSizeWarningLimit: 900,
+    // The game, plus the owner's ticket page. (reel.html is a development-only page and is not built.)
+    rollupOptions: { input: { main: 'index.html', biletVer: 'bilet-ver.html' } },
+  },
 });
