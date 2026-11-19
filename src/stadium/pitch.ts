@@ -1,6 +1,8 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  CanvasTexture,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   Float32BufferAttribute,
@@ -8,7 +10,10 @@ import {
   IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
+  MeshLambertMaterial,
+  RepeatWrapping,
   RingGeometry,
+  SRGBColorSpace,
   type Texture,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -118,6 +123,101 @@ function goal(b: Builder, side: 1 | -1): void {
   }
 }
 
+/**
+ * A small tile of grass grain (light around 1.0), repeated over the pitch and multiplied with
+ * the mown colours, so the grass has texture up close without a big image.
+ */
+function grassGrain(): CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext('2d')!;
+  const img = g.createImageData(size, size);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < size * size; i++) {
+    const v = 212 + rnd() * 43;
+    img.data[i * 4] = v;
+    img.data[i * 4 + 1] = v;
+    img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  // Blades: short light and dark strokes, mostly along the mowing direction.
+  for (let i = 0; i < 1600; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const len = 2 + rnd() * 4;
+    const a = (rnd() - 0.5) * 0.9;
+    g.strokeStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.5)' : 'rgba(140,140,140,0.45)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.sin(a) * len, y + Math.cos(a) * len);
+    g.stroke();
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = RepeatWrapping;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/**
+ * The mown playing surface: stripes along the pitch, fainter bands across it, and light wear
+ * where players run most (goalmouths, the centre circle, the linesmen's strips). Each small
+ * cell has one colour, so the stripe edges stay crisp; the grain texture adds the detail.
+ */
+function grass(): Mesh {
+  const pos: number[] = [];
+  const col: number[] = [];
+  const uv: number[] = [];
+  const stripe = (STRIPE_X * 2) / STRIPES;
+  const band = (STRIPE_Z * 2) / BANDS;
+  const SUB_X = 4;
+  const SUB_Z = 5;
+  const c = new Color();
+  const worn = new Color(C.pitchWorn);
+  const smooth = (e0: number, e1: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  const wear = (x: number, z: number) => {
+    const goal = Math.max(...[-1, 1].map((s) => 1 - smooth(2, 9, Math.hypot((x - s * (L - 3)) * 0.9, z * 1.3))));
+    const centre = 1 - smooth(1, 7, Math.hypot(x, z));
+    const lines = Math.max(...[-1, 1].map((s) => (1 - smooth(0.5, 2.5, Math.abs(z - s * (W + 1.2)))) * (1 - smooth(0, 15, Math.abs(Math.abs(x) - 26) - 12))));
+    return Math.min(0.55, goal * 0.55 + centre * 0.25 + lines * 0.3);
+  };
+  const TILE = 2.2; // metres per grain tile
+  for (let i = 0; i < STRIPES; i++) {
+    for (let j = 0; j < BANDS; j++) {
+      const base = i % 2 ? (j % 2 ? C.pitchDarkB : C.pitchDark) : j % 2 ? C.pitchLightB : C.pitchLight;
+      for (let a = 0; a < SUB_X; a++) {
+        for (let k = 0; k < SUB_Z; k++) {
+          const x0 = -STRIPE_X + i * stripe + (a * stripe) / SUB_X;
+          const z0 = -STRIPE_Z + j * band + (k * band) / SUB_Z;
+          const x1 = x0 + stripe / SUB_X;
+          const z1 = z0 + band / SUB_Z;
+          c.setHex(base).lerp(worn, wear((x0 + x1) / 2, (z0 + z1) / 2));
+          for (const [x, z] of [[x0, z0], [x0, z1], [x1, z1], [x0, z0], [x1, z1], [x1, z0]]) {
+            pos.push(x, 0.035, z);
+            col.push(c.r, c.g, c.b);
+            uv.push(x / TILE, z / TILE);
+          }
+        }
+      }
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new Float32BufferAttribute(col, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.computeVertexNormals();
+  const mesh = new Mesh(g, new MeshLambertMaterial({ vertexColors: true, map: grassGrain() }));
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
 /** The ring of LED boards around the pitch, facing in. */
 function boards(texture: Texture): Mesh {
   const pos: number[] = [];
@@ -151,17 +251,7 @@ export function createPitch(ledTexture: Texture): Group {
   for (let i = 0; i < edge.length - 1; i++) {
     m.tri([0, 0, 0], [edge[i].x, 0, edge[i].z], [edge[i + 1].x, 0, edge[i + 1].z], C.runoff);
   }
-  const stripe = (STRIPE_X * 2) / STRIPES;
-  for (let i = 0; i < STRIPES; i++) {
-    const x0 = -STRIPE_X + i * stripe;
-    // Mown both ways: stripes along the pitch, fainter bands across it.
-    const band = (STRIPE_Z * 2) / BANDS;
-    for (let j = 0; j < BANDS; j++) {
-      const z0 = -STRIPE_Z + j * band;
-      const color = i % 2 ? (j % 2 ? C.pitchDarkB : C.pitchDark) : j % 2 ? C.pitchLightB : C.pitchLight;
-      m.quad([x0, 0.035, z0], [x0 + stripe, 0.035, z0], [x0 + stripe, 0.035, z0 + band], [x0, 0.035, z0 + band], color);
-    }
-  }
+  group.add(grass());
   // A paved apron between the grass and the stands.
   const inner = ring(-4.5);
   for (let i = 0; i < edge.length - 1; i++) {

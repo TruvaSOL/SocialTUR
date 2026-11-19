@@ -17,6 +17,7 @@ export const PALETTE = {
   pitchDark: 0x5daf4e,
   pitchLightB: 0x67b954,
   pitchDarkB: 0x56a748,
+  pitchWorn: 0x9fb661,
   runoff: 0x4c9a42,
   apron: 0xdcd7cb,
   line: 0xf7f7f2,

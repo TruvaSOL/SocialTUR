@@ -368,8 +368,13 @@ const stats = new StatsOverlay(document.querySelector<HTMLElement>('#stats')!, r
   [t('stats.fans'), numberFormat().format(fans.count)],
   [t('stats.near'), `${near.drawn} + ${nearSeats.drawn}`],
 ]);
-document.querySelector('#btn-stats')!.addEventListener('click', () => stats.toggle());
-if (params.has('stats')) stats.toggle(true);
+// The performance panel is for testing: visitors do not see its button; add ?stats to the address to get it.
+const statsButton = document.querySelector<HTMLButtonElement>('#btn-stats')!;
+statsButton.addEventListener('click', () => stats.toggle());
+if (params.has('stats')) {
+  statsButton.hidden = false;
+  stats.toggle(true);
+}
 if (params.has('quality')) quality.lock(Number(params.get('quality')));
 
 const hint = document.querySelector<HTMLElement>('.hint')!;
