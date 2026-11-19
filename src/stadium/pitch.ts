@@ -28,6 +28,38 @@ const BANDS = 10;
 const STRIPE_X = L + 6;
 const STRIPE_Z = W + 5;
 
+/** A solid box beside the pitch, as min/max corners. tools/check-sightlines.ts tests the seats' view against these. */
+export interface PitchsideBox {
+  min: [number, number, number];
+  max: [number, number, number];
+  colour: 'ledBack' | 'white' | 'aegean' | 'glassTint' | 'concreteDark';
+}
+
+/** Centre line of the two team benches (north side). */
+const BENCH_Z = -W - 2.4;
+
+/**
+ * The players' tunnel (middle of the north stand) and the team benches. All are kept low:
+ * the best seats are the front rows right behind them, and a seated fan's eyes there are
+ * only about 2.4 m above the pitch. The tunnel is a low mouth in the stand's front wall with
+ * waist-high side walls, as in grounds where the tunnel runs under the stand; the benches are
+ * low dugouts. Nothing here is taller than 1.1 m.
+ */
+export const PITCHSIDE_BOXES: PitchsideBox[] = [
+  // Tunnel: dark mouth in the front wall, low white side walls, a dark floor and a blue rim.
+  { min: [-2.7, 0, -44.1], max: [2.7, 1.0, -43.85], colour: 'ledBack' },
+  { min: [-2.9, 0, -44], max: [-2.7, 0.9, -41.2], colour: 'white' },
+  { min: [2.7, 0, -44], max: [2.9, 0.9, -41.2], colour: 'white' },
+  { min: [-2.7, 0, -44], max: [2.7, 0.03, -41.2], colour: 'concreteDark' },
+  { min: [-2.95, 0.9, -41.35], max: [2.95, 1.05, -41.15], colour: 'aegean' },
+  // Benches: floor, low back screen, flat roof.
+  ...[-11, 11].flatMap((x): PitchsideBox[] => [
+    { min: [x - 3.5, 0, BENCH_Z - 0.8], max: [x + 3.5, 0.12, BENCH_Z + 0.8], colour: 'concreteDark' },
+    { min: [x - 3.5, 0, BENCH_Z - 0.81], max: [x + 3.5, 1.0, BENCH_Z - 0.69], colour: 'glassTint' },
+    { min: [x - 3.6, 1.0, BENCH_Z - 0.85], max: [x + 3.6, 1.08, BENCH_Z + 0.85], colour: 'glassTint' },
+  ]),
+];
+
 /** A painted straight line from (x0, z0) to (x1, z1). */
 function line(b: Builder, x0: number, z0: number, x1: number, z1: number): void {
   const length = Math.hypot(x1 - x0, z1 - z0) + LINE;
@@ -166,19 +198,15 @@ export function createPitch(ledTexture: Texture): Group {
   }
   // The ball on the centre spot.
   b.add(new IcosahedronGeometry(0.16, 1), C.line, { p: [0, 0.16, 0] });
-  // Players' tunnel in the middle of the north stand: a dark mouth and a glazed canopy.
-  b.add(new BoxGeometry(5.4, 2.6, 0.3), C.ledBack, { p: [0, 1.3, -43.9] });
-  for (const x of [-2.8, 2.8]) b.add(new BoxGeometry(0.2, 2.5, 4.6), C.white, { p: [x, 1.25, -41.7] });
-  b.add(new BoxGeometry(6, 0.14, 4.8), C.glassTint, { p: [0, 2.6, -41.7] });
-  b.add(new BoxGeometry(6.1, 0.3, 0.2), C.aegean, { p: [0, 2.6, -39.3] });
-  // Team benches on the north side, either side of the halfway line.
+  // Players' tunnel and team benches (see PITCHSIDE_BOXES).
+  for (const box of PITCHSIDE_BOXES) {
+    const size = [0, 1, 2].map((k) => box.max[k] - box.min[k]);
+    const centre = [0, 1, 2].map((k) => (box.max[k] + box.min[k]) / 2) as [number, number, number];
+    b.add(new BoxGeometry(size[0], size[1], size[2]), C[box.colour], { p: centre });
+  }
+  // Bench seats: low, so they hide nothing.
   for (const x of [-11, 11]) {
-    b.group({ p: [x, 0, -W - 3.2] }, () => {
-      b.add(new BoxGeometry(7, 0.12, 1.6), C.concreteDark, { p: [0, 0.06, 0] });
-      b.add(new BoxGeometry(7, 2.1, 0.12), C.glassTint, { p: [0, 1.1, -0.75] });
-      b.add(new BoxGeometry(7.2, 0.1, 1.9), C.glassTint, { p: [0, 2.15, -0.1], r: [-0.12, 0, 0] });
-      for (let i = 0; i < 10; i++) b.add(new BoxGeometry(0.5, 0.45, 0.5), C.aegean, { p: [-3.15 + i * 0.7, 0.35, -0.25] });
-    });
+    for (let i = 0; i < 10; i++) b.add(new BoxGeometry(0.5, 0.4, 0.5), C.aegean, { p: [x - 3.15 + i * 0.7, 0.3, BENCH_Z - 0.2] });
   }
 
   const mesh = new Mesh(mergeGeometries([m.geometry(), b.geometry()], false), structureMaterial);
