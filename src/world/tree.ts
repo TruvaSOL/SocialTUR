@@ -26,6 +26,19 @@ export function buildTreeGeometry(): BufferGeometry {
   return b.geometry();
 }
 
+/** A pine: a short trunk and three stacked cones, each a little narrower and lighter. */
+export function buildPineGeometry(): BufferGeometry {
+  const b = new Builder();
+  b.add(new CylinderGeometry(0.16, 0.26, 1.2, 6, 1, true), C.trunk, { p: [0, 0.6, 0] });
+  const layers: [number, number, number, number][] = [
+    [1.55, 2.0, 1.9, C.palmDark],
+    [1.2, 1.8, 3.0, C.leafDark],
+    [0.8, 1.5, 4.0, C.leaf],
+  ];
+  layers.forEach(([r, h, y, color], i) => b.add(new ConeGeometry(r, h, 7), color, { p: [0, y, 0], r: [0, i * 0.5, 0] }));
+  return b.geometry();
+}
+
 /** One palm as a single geometry: a slightly curved trunk, a ring of drooping fronds, a few coconuts. */
 export function buildPalmGeometry(): BufferGeometry {
   const b = new Builder();

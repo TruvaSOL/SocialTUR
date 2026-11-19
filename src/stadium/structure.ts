@@ -227,6 +227,18 @@ export function createStructure(ledTexture: Texture): Structure {
   band(m, FACADE_D, 0, FACADE_D, FACADE_BASE_Y, C.concrete);
   band(m, FACADE_D + 0.05, FACADE_BASE_Y - 0.6, FACADE_D + 0.05, FACADE_BASE_Y, C.aegean);
   band(m, FACADE_D - 0.4, FACADE_BASE_Y, FACADE_D - 0.4, roofY(FACADE_D) - 0.2, C.glassDark);
+  // Floor slabs behind the fins, so the glass reads as a building with storeys, and the
+  // concourse level's glass lit a little lighter, as if the lights inside were on.
+  {
+    const top = roofY(FACADE_D) - 0.3;
+    const floors = 4;
+    const storey = (top - FACADE_BASE_Y) / floors;
+    band(m, FACADE_D - 0.38, FACADE_BASE_Y + 0.5, FACADE_D - 0.38, FACADE_BASE_Y + storey - 0.3, C.glassLit);
+    for (let k = 1; k < floors; k++) {
+      const y = FACADE_BASE_Y + k * storey;
+      band(m, FACADE_D - 0.3, y - 0.3, FACADE_D - 0.3, y + 0.3, C.concrete);
+    }
+  }
   const fins = around(FACADE_D, 2.4);
   fins.forEach(({ seg, f }, i) => {
     const o = outline(seg, f, FACADE_D + 0.2);

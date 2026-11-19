@@ -30,6 +30,7 @@ export const PALETTE = {
   steel: 0xe7e5df,
   glassDark: 0x2f5878,
   glassTint: 0x93c8de,
+  glassLit: 0x5b8fb4,
   ledBack: 0x14213d,
   flood: 0xfff4d2,
   plaza: 0xeae2d2,

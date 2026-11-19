@@ -28,18 +28,36 @@ const STRIP_FRAGMENT = /* glsl */ `
   if (distance(vSeatWorld, uSeatEye) < uSeatNear) discard;
   float u = fract(vSeat.x);
   float v = vSeat.y;
-  // Gaps between seats.
-  if (u < 0.07 || u > 0.93) discard;
-  // Rounded top corners on the seat back.
-  if (v > 0.78) {
-    vec2 q = vec2(max(abs(u - 0.5) - 0.2, 0.0) / 0.23, (v - 0.78) / 0.22);
-    if (dot(q, q) > 1.0) discard;
+  // Far away a seat is narrower than a pixel or two: cutting gaps and dithering colours there
+  // only makes the stand shimmer. So with distance the gaps close, the seat-by-seat dither
+  // fades into the smooth colour bands, and the shading becomes its average.
+  float far = smoothstep(0.3, 0.8, fwidth(vSeat.x));
+  if (far < 0.5) {
+    // Gaps between seats.
+    if (u < 0.07 || u > 0.93) discard;
+    // Rounded top corners on the seat back.
+    if (v > 0.78) {
+      vec2 q = vec2(max(abs(u - 0.5) - 0.2, 0.0) / 0.23, (v - 0.78) / 0.22);
+      if (dot(q, q) > 1.0) discard;
+    }
   }
-  vec3 seatColor = seatMosaic(floor(vSeat.x), vSeat.z, vSeat.w, vSeatWorld.xz);
+  vec3 seatColor = seatMosaicSoft(floor(vSeat.x), vSeat.z, vSeat.w, vSeatWorld.xz, 1.0 - far);
   // Shading that gives the flat strip some form: a bright front lip on the pan, a dark fold
   // where pan meets back, the back a touch darker, its top edge catching the light.
-  seatColor *= v < 0.05 ? 1.1 : v < 0.33 ? 1.0 : v < 0.45 ? 0.7 : v > 0.9 ? 1.08 : 0.9;
+  float shade = v < 0.05 ? 1.1 : v < 0.33 ? 1.0 : v < 0.45 ? 0.7 : v > 0.9 ? 1.08 : 0.9;
+  seatColor *= mix(shade, 0.9, far);
   vec4 diffuseColor = vec4(seatColor, opacity);
+`;
+
+/** The mosaic with the seat-by-seat dither scaled by `dither` (1 near, 0 far: smooth bands). */
+const SEAT_MOSAIC_SOFT = /* glsl */ `
+vec3 seatMosaicSoft(float s, float r, float y, vec2 xz, float dither) {
+  float h = fract(sin(s * 12.9898 + r * 78.233) * 43758.5453);
+  float height = clamp(y / 39.0, 0.0, 1.0);
+  float sweep = 0.5 + 0.5 * sin(atan(xz.y, xz.x) * 3.0 + height * 5.0);
+  float tone = height * 0.78 + sweep * 0.3 + (h - 0.5) * 0.34 * dither;
+  return tone < 0.27 ? uSeatColors[0] : tone < 0.52 ? uSeatColors[1] : tone < 0.78 ? uSeatColors[2] : uSeatColors[3];
+}
 `;
 
 export interface Seats {
@@ -116,7 +134,7 @@ export function createSeats(): Seats {
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        `#include <common>\nvarying vec4 vSeat;\nvarying vec3 vSeatWorld;\nuniform vec3 uSeatEye;\nuniform float uSeatNear;\n${SEAT_MOSAIC}`,
+        `#include <common>\nvarying vec4 vSeat;\nvarying vec3 vSeatWorld;\nuniform vec3 uSeatEye;\nuniform float uSeatNear;\n${SEAT_MOSAIC}\n${SEAT_MOSAIC_SOFT}`,
       )
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', STRIP_FRAGMENT);
   };
